@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Item {
+  id            String       @id @default(cuid())
+  name          String
+  category      String
+  internalValue Float
+  auctions      Auction[]
+  playerItems   PlayerItem[]
+}
+
+model Auction {
+  id         String   @id @default(cuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  minBid     Float
+  currentBid Float
+  endsAt     DateTime
+  listedBy   String
+  status     String   @default("active")
+  bids       Bid[]
+}
+
+model Bid {
+  id          String   @id @default(cuid())
+  auctionId   String
+  auction     Auction  @relation(fields: [auctionId], references: [id])
+  bidderName  String
+  amount      Float
+  isNPC       Boolean
+  placedAt    DateTime @default(now())
+}
+
+model Player {
+  id        String       @id
+  wallet    Float        @default(100)
+  isDiving  Boolean      @default(false)
+  inventory PlayerItem[]
+}
+
+model PlayerItem {
+  id          String    @id @default(cuid())
+  playerId    String
+  player      Player    @relation(fields: [playerId], references: [id])
+  itemId      String
+  item        Item      @relation(fields: [itemId], references: [id])
+  acquiredFor Float
+  listedAt    DateTime?
+}
+
+model NPCPersona {
+  id             String @id @default(cuid())
+  name           String
+  aggressionSeed Float
+}
