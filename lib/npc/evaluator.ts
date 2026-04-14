@@ -33,7 +33,7 @@ export async function evaluateNPCBids() {
         include: { item: true },
     });
 
-    console.log(`Evaluating ${activeAuctions.length} active auctions`);
+    //console.log(`Evaluating ${activeAuctions.length} active auctions`);
 
     if (activeAuctions.length === 0) return;
 
@@ -44,16 +44,16 @@ export async function evaluateNPCBids() {
         const probability = calculateBidProbability(auction.currentBid, auction.item.internalValue, auction.endsAt, auction.createdAt);
 
         const roll = Math.random();
-        console.log(
+        /*console.log(
             `Auction ${auction.id} (${auction.item.name}): price=${auction.currentBid}, value=${auction.item.internalValue}, probability=${probability.toFixed(3)}, roll=${roll.toFixed(3)}, bidding=${roll <= probability}`,
-        );
+        );*/
 
         if (roll > probability) continue;
 
         const persona = personas[Math.floor(Math.random() * personas.length)];
         const bidAmount = calculateNPCBidAmount(auction.currentBid, auction.item.internalValue, persona.aggressionSeed);
 
-        console.log(`NPC ${persona.name} scheduling bid of $${bidAmount} on ${auction.item.name}`);
+        //console.log(`NPC ${persona.name} scheduling bid of $${bidAmount} on ${auction.item.name}`);
         scheduleNPCBid(auction.id, persona.name, bidAmount, (5 + Math.random() * 20) * 1000);
     }
 }

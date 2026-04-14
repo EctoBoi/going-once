@@ -24,7 +24,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (!player) return NextResponse.json({ ok: false, error: "Player not found" }, { status: 404 });
         if (amount > player.wallet) return NextResponse.json({ ok: false, error: "Insufficient funds" }, { status: 400 });
 
-        // Deduct from wallet and record bid
         const [updatedPlayer, bid] = await Promise.all([
             prisma.player.update({
                 where: { id: user.id },
@@ -36,6 +35,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
                     bidderName: "You",
                     amount,
                     isNPC: false,
+                    playerId: user.id,
                     placedAt: new Date(),
                 },
             }),

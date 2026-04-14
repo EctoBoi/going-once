@@ -35,6 +35,7 @@ model Bid {
   bidderName  String
   amount      Float
   isNPC       Boolean
+  playerId    String?
   placedAt    DateTime @default(now())
 }
 
