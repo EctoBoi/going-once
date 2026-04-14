@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import MarketEvaluator from "@/components/MarketEvaluator";
 
 type Bid = {
     id: string;
@@ -52,7 +53,7 @@ function useCountdown(endsAt: string) {
 
 const supabase = createClient();
 
-export default function AuctionDetail({ auction, playerWallet }: { auction: Auction; playerWallet: number }) {
+export default function AuctionDetail({ auction, playerWallet, isOwnListing }: { auction: Auction; playerWallet: number; isOwnListing: boolean }) {
     const [currentBid, setCurrentBid] = useState(auction.currentBid);
     const [bids, setBids] = useState(auction.bids);
     const [bidAmount, setBidAmount] = useState("");
@@ -92,14 +93,6 @@ export default function AuctionDetail({ auction, playerWallet }: { auction: Auct
             supabase.removeChannel(channel);
         };
     }, [auction.id]);
-
-    // NPC evaluator timer
-    useEffect(() => {
-        const interval = setInterval(() => {
-            fetch("/api/npc/evaluate", { method: "POST" });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
 
     const minNextBid = currentBid + 1;
 
@@ -165,7 +158,7 @@ export default function AuctionDetail({ auction, playerWallet }: { auction: Auct
                     </div>
                 </div>
 
-                {!ended && (
+                {!ended && !isOwnListing && (
                     <div className="mt-6 flex gap-2">
                         <input
                             type="number"
@@ -181,6 +174,8 @@ export default function AuctionDetail({ auction, playerWallet }: { auction: Auct
                         </button>
                     </div>
                 )}
+
+                {!ended && isOwnListing && <p className="mt-6 text-sm text-gray-500 italic">This is your listing — you cannot bid on it.</p>}
 
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
             </div>
@@ -200,6 +195,7 @@ export default function AuctionDetail({ auction, playerWallet }: { auction: Auct
                     </div>
                 )}
             </div>
+            <MarketEvaluator />
         </main>
     );
 }

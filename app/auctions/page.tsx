@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { replenishAuctions, expireAuctions } from "@/lib/game/auctionEngine";
 import AuctionFeed from "@/components/auction/AuctionFeed";
+import Link from "next/link";
 
 export default async function AuctionsPage() {
     const supabase = await createClient();
@@ -27,7 +28,12 @@ export default async function AuctionsPage() {
 
     return (
         <main className="min-h-screen p-8">
-            <h1 className="text-2xl font-bold mb-6">Active Auctions</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold">Active Auctions</h1>
+                <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">
+                    ← Dashboard
+                </Link>
+            </div>
             <AuctionFeed initialAuctions={serialized} />
         </main>
     );

@@ -37,5 +37,7 @@ export default async function AuctionPage({ params }: { params: Promise<{ id: st
         })),
     };
 
-    return <AuctionDetail auction={serialized} playerWallet={player?.wallet ?? 0} />;
+    const isOwnListing = auction.listedBy === user.id;
+
+    return <AuctionDetail auction={serialized} playerWallet={player?.wallet ?? 0} isOwnListing={isOwnListing} />;
 }

@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 // P(bid) = baseRate * (1 - price/V)^k * (1 - elapsed/duration)^j
 // k and j control how steeply interest drops off
 const BASE_RATE = 0.85;
-const K = 1.2; // price sensitivity
-const J = 0.5; // time sensitivity
+const K = 1.6; // price sensitivity
+const J = 1.2; // time sensitivity
 
 function calculateBidProbability(currentBid: number, internalValue: number, endsAt: Date, createdAt: Date): number {
     const priceFactor = Math.max(0, 1 - currentBid / internalValue);
