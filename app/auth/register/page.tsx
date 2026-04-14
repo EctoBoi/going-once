@@ -16,11 +16,20 @@ export default function RegisterPage() {
     async function handleRegister() {
         setLoading(true);
         setError(null);
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) {
             setError(error.message);
             setLoading(false);
             return;
+        }
+        if (data.user) {
+            const res = await fetch("/api/player/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: data.user.id }),
+            });
+            const result = await res.json();
+            console.log("Player create result:", result);
         }
         router.push("/dashboard");
     }
