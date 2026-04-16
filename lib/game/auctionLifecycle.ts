@@ -37,7 +37,8 @@ type CreateListingInput = {
 function isRetryableTransactionError(error: unknown) {
     // Handle known Prisma client serialization error codes as well as
     // lower-level driver errors (e.g. Postgres SQLSTATE 40001).
-    const anyErr = error as any;
+    // Narrow the error shape instead of using `any` so TypeScript stays strict.
+    const errWithCause = error as { cause?: { originalCode?: string | number } };
 
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
         return true;
@@ -45,7 +46,7 @@ function isRetryableTransactionError(error: unknown) {
 
     // Prisma may wrap driver errors in a DriverAdapterError whose `cause`
     // contains the original SQLSTATE code (e.g. '40001' for serialization failures).
-    if (anyErr?.cause?.originalCode === "40001" || anyErr?.cause?.originalCode === 40001) {
+    if (errWithCause?.cause?.originalCode === "40001" || errWithCause?.cause?.originalCode === 40001) {
         return true;
     }
 
@@ -174,9 +175,7 @@ async function settleClaimedAuction(auctionId: string, now: Date) {
             return;
         }
 
-        const leadingBid = auction.leadingBidId
-            ? await tx.bid.findUnique({ where: { id: auction.leadingBidId } })
-            : auction.bids[0] ?? null;
+        const leadingBid = auction.leadingBidId ? await tx.bid.findUnique({ where: { id: auction.leadingBidId } }) : (auction.bids[0] ?? null);
         const activeReservation = auction.reservations[0] ?? null;
 
         const finalizeAuction: Prisma.AuctionUpdateInput = {
