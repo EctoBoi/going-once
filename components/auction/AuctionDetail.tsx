@@ -11,6 +11,7 @@ type Bid = {
     bidderName: string;
     amount: number;
     isNPC: boolean;
+    playerId: string | null;
     placedAt: string;
 };
 
@@ -53,13 +54,26 @@ function useCountdown(endsAt: string) {
 
 const supabase = createClient();
 
-export default function AuctionDetail({ auction, playerWallet, isOwnListing }: { auction: Auction; playerWallet: number; isOwnListing: boolean }) {
+export default function AuctionDetail({
+    auction,
+    playerWallet,
+    isOwnListing,
+    currentPlayerId,
+    onClose,
+}: {
+    auction: Auction;
+    playerWallet: number;
+    isOwnListing: boolean;
+    currentPlayerId?: string;
+    onClose?: () => void;
+}) {
     const [currentBid, setCurrentBid] = useState(auction.currentBid);
     const [bids, setBids] = useState(auction.bids);
     const [bidAmount, setBidAmount] = useState("");
     const [wallet, setWallet] = useState(playerWallet);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isDiving, setIsDiving] = useState(false);
     const { timeLeft, ended } = useCountdown(auction.endsAt);
     const router = useRouter();
 
@@ -81,6 +95,7 @@ export default function AuctionDetail({ auction, playerWallet, isOwnListing }: {
                         bidderName: string;
                         amount: number;
                         isNPC: boolean;
+                        playerId: string | null;
                         placedAt: string;
                     };
                     setBids((prev) => [newBid, ...prev]);
@@ -129,11 +144,34 @@ export default function AuctionDetail({ auction, playerWallet, isOwnListing }: {
         setLoading(false);
     }
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch("/api/player/dive-status");
+                const data = await res.json();
+                if (!mounted) return;
+                setIsDiving(Boolean(data?.isDiving));
+            } catch (e) {
+                // ignore
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     return (
-        <main className="min-h-screen p-8 max-w-2xl mx-auto">
-            <Link href="/auctions" className="text-sm text-gray-500 hover:underline">
-                ← Back to auctions
-            </Link>
+        <main className={onClose ? "p-6" : "min-h-screen p-8 max-w-2xl mx-auto"}>
+            {onClose ? (
+                <button onClick={onClose} className="text-sm text-gray-500 hover:underline">
+                    ← Back to auctions
+                </button>
+            ) : (
+                <Link href="/auctions" className="text-sm text-gray-500 hover:underline">
+                    ← Back to auctions
+                </Link>
+            )}
 
             <div className="mt-6 border rounded-lg p-6">
                 <div className="flex justify-between items-start">
@@ -169,7 +207,8 @@ export default function AuctionDetail({ auction, playerWallet, isOwnListing }: {
                             min={minNextBid}
                             step="0.01"
                         />
-                        <button onClick={handleBid} disabled={loading} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
+                        {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
+                        <button onClick={handleBid} disabled={loading || isDiving} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
                             {loading ? "Bidding..." : "Bid"}
                         </button>
                     </div>
@@ -186,12 +225,18 @@ export default function AuctionDetail({ auction, playerWallet, isOwnListing }: {
                     <p className="text-gray-500 text-sm">No bids yet. Be the first!</p>
                 ) : (
                     <div className="flex flex-col gap-2">
-                        {bids.map((bid) => (
-                            <div key={bid.id} className="flex justify-between text-sm border-b pb-2">
-                                <span className="font-medium">{bid.bidderName}</span>
-                                <span>${bid.amount.toFixed(2)}</span>
-                            </div>
-                        ))}
+                        {bids.map((bid) => {
+                            const isYou = !bid.isNPC && currentPlayerId && bid.playerId === currentPlayerId;
+                            return (
+                                <div key={bid.id} className="flex justify-between text-sm border-b pb-2">
+                                    <span className="font-medium">
+                                        {bid.bidderName}
+                                        {isYou && <span className="ml-1 text-blue-600 font-semibold">(You)</span>}
+                                    </span>
+                                    <span>${bid.amount.toFixed(2)}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

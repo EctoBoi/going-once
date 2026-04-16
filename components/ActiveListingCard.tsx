@@ -49,19 +49,72 @@ function useCountdown(endsAt: string) {
     return timeLeft;
 }
 
-export default function ActiveListingCard({ playerItem, auction }: { playerItem: PlayerItem; auction: Auction | null }) {
+export default function ActiveListingCard({
+    playerItem,
+    auction,
+    onOpen,
+}: {
+    playerItem: PlayerItem;
+    auction: Auction | null;
+    onOpen?: (auctionId: string) => void;
+}) {
     const timeLeft = useCountdown(auction?.endsAt ?? "");
 
     if (!auction) return null;
 
-    return (
-        <Link href={`/auctions/${auction.id}`}>
-            <div className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+    const cls = "border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer";
+
+    if (onOpen) {
+        return (
+            <div onClick={() => onOpen(auction.id)} className={cls}>
                 <div className="flex justify-between items-start mb-3">
                     <div>
                         <p className="font-medium">{playerItem.item.name}</p>
                         <p className="text-xs text-gray-500 capitalize">{playerItem.item.category}</p>
-                        <p className="text-xs text-gray-400 mt-1">Paid ${playerItem.acquiredFor.toFixed(2)}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs text-gray-500">Time left</p>
+                        <p className="font-mono font-bold text-sm">{timeLeft}</p>
+                    </div>
+                </div>
+
+                <div className="flex justify-between mb-3">
+                    <div>
+                        <p className="text-xs text-gray-500">Current bid</p>
+                        <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
+                    </div>
+                </div>
+
+                {auction.bids.length > 0 && (
+                    <div className="border-t pt-3">
+                        <p className="text-xs text-gray-500 mb-2">Recent bids</p>
+                        <div className="flex flex-col gap-1">
+                            {auction.bids.map((bid) => (
+                                <div key={bid.id} className="flex justify-between text-xs">
+                                    <span>{bid.bidderName}</span>
+                                    <span>${bid.amount.toFixed(2)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <Link href={`/auctions/${auction.id}`}>
+            <div className={cls}>
+                <div className="flex justify-between items-start mb-3">
+                    <div>
+                        <p className="font-medium">{playerItem.item.name}</p>
+                        <p className="text-xs text-gray-500 capitalize">{playerItem.item.category}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
+                        </p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-gray-500">Time left</p>

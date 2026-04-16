@@ -10,7 +10,7 @@ export async function POST(request: Request) {
         } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-        const { playerItemId, minBid, durationMinutes } = await request.json();
+        const { playerItemId, minBid, buyNow, durationMinutes } = await request.json();
 
         const clampedDuration = Math.min(10, Math.max(1, durationMinutes ?? 2));
 
@@ -19,6 +19,7 @@ export async function POST(request: Request) {
             playerId: user.id,
             playerItemId,
             minBid,
+            buyNow: buyNow !== undefined && buyNow !== null && buyNow !== "" ? Number(buyNow) : undefined,
             durationMinutes: clampedDuration,
         });
 

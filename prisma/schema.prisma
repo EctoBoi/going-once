@@ -36,6 +36,7 @@ model Auction {
   playerItemId    String?
   playerItem      PlayerItem?   @relation(fields: [playerItemId], references: [id])
   minBid          Float
+  buyNow          Float?
   currentBid      Float
   endsAt          DateTime
   createdAt       DateTime      @default(now())
@@ -80,8 +81,10 @@ model Bid {
 
 model Player {
   id               String           @id
+  username         String?          @unique
   wallet           Float            @default(100)
   isDiving         Boolean          @default(false)
+  diveFinishesAt   DateTime?
   inventory        PlayerItem[]
   bids             Bid[]
   reservations     BidReservation[]

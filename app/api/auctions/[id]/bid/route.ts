@@ -13,10 +13,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
         const { amount } = await request.json();
 
+        // Use the player's username as their display name, falling back to a short ID
+        const player = await import("@/lib/prisma").then(({ prisma }) =>
+            prisma.player.findUnique({ where: { id: user.id }, select: { username: true, isDiving: true } }),
+        );
+        if (!player) return NextResponse.json({ ok: false, error: "Player not found" }, { status: 404 });
+        if (player.isDiving) return NextResponse.json({ ok: false, error: "Cannot bid while diving" }, { status: 403 });
+        const bidderName = player?.username ?? `Player-${user.id.slice(0, 6)}`;
+
         await reconcileAuctionLifecycle();
         const result = await placeBid({
             auctionId: id,
-            bidderName: "You",
+            bidderName,
             amount,
             isNPC: false,
             playerId: user.id,

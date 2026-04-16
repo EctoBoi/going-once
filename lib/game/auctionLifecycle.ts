@@ -30,6 +30,7 @@ type CreateListingInput = {
     playerId: string;
     playerItemId: string;
     minBid: number;
+    buyNow?: number;
     durationMinutes: number;
     now?: Date;
 };
@@ -496,6 +497,15 @@ export async function createListing(input: CreateListingInput) {
             throw new AuctionLifecycleError("Unauthorized", 401, "item_not_owned");
         }
 
+        // Prevent players from listing items while they are mid-dive.
+        const player = await tx.player.findUnique({ where: { id: input.playerId } });
+        if (!player) {
+            throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
+        }
+        if (player.isDiving) {
+            throw new AuctionLifecycleError("Cannot list items while diving", 403, "player_diving");
+        }
+
         const marked = await tx.playerItem.updateMany({
             where: {
                 id: input.playerItemId,
@@ -520,11 +530,16 @@ export async function createListing(input: CreateListingInput) {
             throw new AuctionLifecycleError("Already listed", 400, "existing_open_auction");
         }
 
+        if (input.buyNow !== undefined && input.buyNow < 0) {
+            throw new AuctionLifecycleError("Buy-now price cannot be negative", 400, "invalid_buy_now");
+        }
+
         return tx.auction.create({
             data: {
                 itemId: playerItem.itemId,
                 playerItemId: playerItem.id,
                 minBid: input.minBid,
+                buyNow: input.buyNow ?? null,
                 currentBid: input.minBid,
                 endsAt,
                 listedBy: input.playerId,
@@ -532,6 +547,78 @@ export async function createListing(input: CreateListingInput) {
             },
         });
     });
+}
+
+/**
+ * Execute an NPC buy-now on a player auction.
+ * The auction is immediately settled at the buyNow price.
+ */
+export async function executeBuyNow(input: { auctionId: string; bidderName: string }) {
+    const now = new Date();
+
+    await withSerializableTransaction(async (tx) => {
+        const auction = await tx.auction.findUnique({
+            where: { id: input.auctionId },
+            include: {
+                reservations: {
+                    where: { status: BidReservationStatus.active },
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                },
+            },
+        });
+
+        if (!auction || !auction.buyNow) {
+            throw new AuctionLifecycleError("No buy-now price set", 400, "no_buy_now");
+        }
+        if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
+            throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
+        }
+        if (!auction.playerItemId) {
+            throw new AuctionLifecycleError("Buy-now only valid for player listings", 400, "not_player_listing");
+        }
+        if (auction.buyNow <= auction.currentBid) {
+            throw new AuctionLifecycleError("Buy-now price already exceeded by current bid", 400, "buy_now_exceeded");
+        }
+
+        const activeReservation = auction.reservations[0] ?? null;
+        if (activeReservation) {
+            await releaseReservation(tx, activeReservation, now, BidReservationStatus.released, "outbid_by_buy_now");
+        }
+
+        if (auction.leadingBidId) {
+            await tx.bid.update({
+                where: { id: auction.leadingBidId },
+                data: { supersededAt: now },
+            });
+        }
+
+        const bid = await tx.bid.create({
+            data: {
+                auctionId: auction.id,
+                bidderName: input.bidderName,
+                amount: auction.buyNow,
+                isNPC: true,
+                playerId: null,
+                placedAt: now,
+            },
+        });
+
+        // Force auction into resolving state immediately
+        await tx.auction.update({
+            where: { id: auction.id },
+            data: {
+                currentBid: auction.buyNow,
+                leadingBidId: bid.id,
+                leadingPlayerId: null,
+                endsAt: now,
+                status: AuctionStatus.resolving,
+                resolvingAt: now,
+            },
+        });
+    });
+
+    await settleClaimedAuction(input.auctionId, now);
 }
 
 export async function resetAuctionStateForTesting() {

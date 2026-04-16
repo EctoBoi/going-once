@@ -25,8 +25,10 @@ export default async function SellPage({ params }: { params: Promise<{ playerIte
             <div className="border rounded-lg p-6">
                 <p className="font-semibold text-lg">{playerItem.item.name}</p>
                 <p className="text-sm text-gray-500 capitalize mb-1">{playerItem.item.category}</p>
-                <p className="text-sm text-gray-400 mb-6">You paid ${playerItem.acquiredFor.toFixed(2)}</p>
-                <SellForm playerItemId={playerItem.id} />
+                <p className="text-sm text-gray-400 mb-6">
+                    {playerItem.acquiredFor === 0 ? "Found in trash" : `You paid $${playerItem.acquiredFor.toFixed(2)}`}
+                </p>
+                <SellForm playerItemId={playerItem.id} acquiredFor={playerItem.acquiredFor} />
             </div>
         </main>
     );

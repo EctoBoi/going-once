@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { AuctionLifecycleError, placeBid } from "@/lib/game/auctionLifecycle";
+import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/auctionLifecycle";
+import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
+import { logNpcBuyDecision } from "@/lib/npc/logging";
 
 // Probability function
 // P(bid) = baseRate * (1 - price/V)^k * (1 - elapsed/duration)^j
@@ -18,6 +20,42 @@ function calculateBidProbability(currentBid: number, internalValue: number, ends
     return Math.min(1, Math.max(0, probability));
 }
 
+/**
+ * Compute the probability that an NPC will use buy-now on a player auction.
+ *
+ * Piecewise linear:
+ *  B <= (1-t)*V               → 1.0   (100%)
+ *  (1-t)*V < B <= V           → linear 100% → NPC_BASE_LOW_CHANCE
+ *  V < B < V*(1+NPC_MAX_OVER) → baseChance linear NPC_BASE_LOW_CHANCE → 0%, plus aggression boost
+ *  B >= V*(1+NPC_MAX_OVER)    → 0%
+ *
+ * Aggression boost only applies in the V < B < 1.25V range:
+ *  boost = aggression * NPC_MAX_AGGRESSION_BOOST * (1 - (B-V) / (NPC_MAX_OVER*V))
+ */
+export function computeBuyNowChance({ buyNow, internalValue, aggression }: { buyNow: number; internalValue: number; aggression: number }): number {
+    if (internalValue <= 0) return 0;
+    const t = NPC_BUY_BREAKPOINT;
+    const lower = (1 - t) * internalValue;
+    const upper = (1 + NPC_MAX_OVER) * internalValue;
+
+    if (buyNow <= lower) return 1.0;
+
+    if (buyNow <= internalValue) {
+        // linear from 1.0 down to NPC_BASE_LOW_CHANCE
+        const fraction = (buyNow - lower) / (t * internalValue);
+        return 1.0 - fraction * (1.0 - NPC_BASE_LOW_CHANCE);
+    }
+
+    if (buyNow < upper) {
+        const fraction = (buyNow - internalValue) / (NPC_MAX_OVER * internalValue);
+        const baseChance = NPC_BASE_LOW_CHANCE * (1 - fraction);
+        const boost = Math.max(0, Math.min(1, aggression)) * NPC_MAX_AGGRESSION_BOOST * (1 - fraction);
+        return Math.max(0, baseChance + boost);
+    }
+
+    return 0;
+}
+
 // How much an NPC will bid above current — influenced by aggression
 function calculateNPCBidAmount(currentBid: number, internalValue: number, aggressionSeed: number): number {
     // Base increment is $1-5
@@ -34,28 +72,71 @@ export async function evaluateNPCBids() {
         include: { item: true },
     });
 
-    //console.log(`Evaluating ${activeAuctions.length} active auctions`);
-
     if (activeAuctions.length === 0) return;
 
     const personas = await prisma.nPCPersona.findMany();
     if (personas.length === 0) return;
 
+    // Build a map of which NPC personas have already bid on each auction so
+    // we can route duplicate-bid attempts to a different (fresh) persona
+    // instead of skipping the auction entirely — preserving overall bid volume.
+    const existingNPCBids = await prisma.bid.findMany({
+        where: { isNPC: true, auctionId: { in: activeAuctions.map((a) => a.id) } },
+        select: { auctionId: true, bidderName: true },
+    });
+    const npcBidsByAuction = new Map<string, Set<string>>();
+    for (const bid of existingNPCBids) {
+        if (!npcBidsByAuction.has(bid.auctionId)) {
+            npcBidsByAuction.set(bid.auctionId, new Set());
+        }
+        npcBidsByAuction.get(bid.auctionId)!.add(bid.bidderName);
+    }
+
     for (const auction of activeAuctions) {
         const probability = calculateBidProbability(auction.currentBid, auction.item.internalValue, auction.endsAt, auction.createdAt);
 
         const roll = Math.random();
-        /*console.log(
-            `Auction ${auction.id} (${auction.item.name}): price=${auction.currentBid}, value=${auction.item.internalValue}, probability=${probability.toFixed(3)}, roll=${roll.toFixed(3)}, bidding=${roll <= probability}`,
-        );*/
-
         if (roll > probability) continue;
 
-        const persona = personas[Math.floor(Math.random() * personas.length)];
-        const bidAmount = calculateNPCBidAmount(auction.currentBid, auction.item.internalValue, persona.aggressionSeed);
+        // Pick a persona that hasn't already bid on this auction
+        const alreadyBidPersonas = npcBidsByAuction.get(auction.id) ?? new Set<string>();
+        const availablePersonas = personas.filter((p) => !alreadyBidPersonas.has(p.name));
+        if (availablePersonas.length === 0) continue; // All personas already bid — skip
 
-        //console.log(`NPC ${persona.name} scheduling bid of $${bidAmount} on ${auction.item.name}`);
-        // Schedule the bid but attach a catch handler so failures don't become unhandled rejections
+        const persona = availablePersonas[Math.floor(Math.random() * availablePersonas.length)];
+
+        // Buy-now opportunity: only for player-created auctions with a buyNow price set
+        if (ENABLE_NPC_BUY_NOW && auction.playerItemId && auction.buyNow !== null && auction.buyNow !== undefined && auction.buyNow > auction.currentBid) {
+            const effectiveChance = computeBuyNowChance({
+                buyNow: auction.buyNow,
+                internalValue: auction.item.internalValue,
+                aggression: persona.aggressionSeed,
+            });
+            const drawOutcome = Math.random() < effectiveChance;
+            logNpcBuyDecision({
+                auctionId: auction.id,
+                itemId: auction.itemId,
+                buyNow: auction.buyNow,
+                internalValue: auction.item.internalValue,
+                baseChance: NPC_BASE_LOW_CHANCE,
+                aggression: persona.aggressionSeed,
+                effectiveChance,
+                drawOutcome,
+                npcPersona: persona.name,
+                timestamp: new Date().toISOString(),
+            });
+
+            if (drawOutcome) {
+                executeBuyNow({ auctionId: auction.id, bidderName: persona.name }).catch((err) => {
+                    if (!(err instanceof AuctionLifecycleError)) {
+                        console.error("NPC buy-now failed", { auctionId: auction.id, err });
+                    }
+                });
+                continue; // Don't also schedule a normal bid
+            }
+        }
+
+        const bidAmount = calculateNPCBidAmount(auction.currentBid, auction.item.internalValue, persona.aggressionSeed);
         scheduleNPCBid(auction.id, persona.name, bidAmount, (5 + Math.random() * 20) * 1000).catch((err) => {
             console.error("NPC bid scheduling failed", { auctionId: auction.id, err });
         });

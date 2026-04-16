@@ -9,6 +9,8 @@ type Auction = {
     minBid: number;
     endsAt: string | Date;
     status: string;
+    listedBy: string;
+    bidCount: number;
     item: {
         id: string;
         name: string;
@@ -38,27 +40,46 @@ function useCountdown(endsAt: string | Date) {
     return timeLeft;
 }
 
-export default function AuctionCard({ auction }: { auction: Auction }) {
+export default function AuctionCard({ auction, currentPlayerId, onOpen }: { auction: Auction; currentPlayerId?: string; onOpen?: () => void }) {
     const timeLeft = useCountdown(auction.endsAt);
+    const isOwn = currentPlayerId && auction.listedBy === currentPlayerId;
+
+    const cls = `border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer relative ${isOwn ? "border-blue-400 bg-gray-900" : ""}`;
+    const cardContent = (
+        <>
+            {isOwn && <span className="absolute top-2 right-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">Your listing</span>}
+            <div className="flex justify-between items-start mb-2">
+                <h2 className="font-semibold">{auction.item.name}</h2>
+                <span className="text-xs text-gray-500 capitalize">{auction.item.category}</span>
+            </div>
+            <div className="flex justify-between items-center mt-4">
+                <div>
+                    <p className="text-xs text-gray-500">Current bid</p>
+                    <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-xs text-gray-500">Bids</p>
+                    <p className="font-semibold">{auction.bidCount}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs text-gray-500">Time left</p>
+                    <p className={`font-mono font-bold ${timeLeft === "Ended" ? "text-red-500" : ""}`}>{timeLeft}</p>
+                </div>
+            </div>
+        </>
+    );
+
+    if (onOpen) {
+        return (
+            <div role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()} className={cls}>
+                {cardContent}
+            </div>
+        );
+    }
 
     return (
         <Link href={`/auctions/${auction.id}`}>
-            <div className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
-                <div className="flex justify-between items-start mb-2">
-                    <h2 className="font-semibold">{auction.item.name}</h2>
-                    <span className="text-xs text-gray-500 capitalize">{auction.item.category}</span>
-                </div>
-                <div className="flex justify-between items-center mt-4">
-                    <div>
-                        <p className="text-xs text-gray-500">Current bid</p>
-                        <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xs text-gray-500">Time left</p>
-                        <p className={`font-mono font-bold ${timeLeft === "Ended" ? "text-red-500" : ""}`}>{timeLeft}</p>
-                    </div>
-                </div>
-            </div>
+            <div className={cls}>{cardContent}</div>
         </Link>
     );
 }

@@ -1,16 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
-import AuctionFeed from "@/components/auction/AuctionFeed";
-import Link from "next/link";
+import { NextResponse } from "next/server";
 
-export default async function AuctionsPage() {
+export async function GET() {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) redirect("/auth/login");
+    if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
     await reconcileAuctionLifecycle();
 
@@ -34,15 +32,5 @@ export default async function AuctionsPage() {
         item: a.item,
     }));
 
-    return (
-        <main className="min-h-screen p-8">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Active Auctions</h1>
-                <Link href="/dashboard" className="text-sm text-gray-500 hover:underline">
-                    ← Dashboard
-                </Link>
-            </div>
-            <AuctionFeed initialAuctions={serialized} currentPlayerId={user.id} />
-        </main>
-    );
+    return NextResponse.json({ ok: true, auctions: serialized });
 }
