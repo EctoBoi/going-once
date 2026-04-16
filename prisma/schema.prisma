@@ -6,6 +6,20 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AuctionStatus {
+  active
+  resolving
+  resolved
+}
+
+enum BidReservationStatus {
+  active
+  released
+  consumed
+  expired
+  voided
+}
+
 model Item {
   id            String       @id @default(cuid())
   name          String       @unique
@@ -16,34 +30,63 @@ model Item {
 }
 
 model Auction {
-  id         String   @id @default(cuid())
-  itemId     String
-  item       Item     @relation(fields: [itemId], references: [id])
-  minBid     Float
-  currentBid Float
-  endsAt     DateTime
-  createdAt  DateTime @default(now())
-  listedBy   String
-  status     String   @default("active")
-  bids       Bid[]
+  id              String        @id @default(cuid())
+  itemId          String
+  item            Item          @relation(fields: [itemId], references: [id])
+  playerItemId    String?
+  playerItem      PlayerItem?   @relation(fields: [playerItemId], references: [id])
+  minBid          Float
+  currentBid      Float
+  endsAt          DateTime
+  createdAt       DateTime      @default(now())
+  listedBy        String
+  status          AuctionStatus @default(active)
+  resolvingAt     DateTime?
+  resolvedAt      DateTime?
+  leadingBidId    String?        @unique
+  leadingBid      Bid?          @relation("LeadingBid", fields: [leadingBidId], references: [id])
+  leadingPlayerId String?
+  leadingPlayer   Player?       @relation("LeadingPlayer", fields: [leadingPlayerId], references: [id])
+  winningBidId    String?        @unique
+  winningBid      Bid?          @relation("WinningBid", fields: [winningBidId], references: [id])
+  winningPlayerId String?
+  winningPlayer   Player?       @relation("WinningPlayer", fields: [winningPlayerId], references: [id])
+  bids            Bid[]
+  reservations    BidReservation[]
+
+  @@index([status, endsAt])
+  @@index([playerItemId, status])
+  @@index([itemId, status])
 }
 
 model Bid {
-  id          String   @id @default(cuid())
-  auctionId   String
-  auction     Auction  @relation(fields: [auctionId], references: [id])
-  bidderName  String
-  amount      Float
-  isNPC       Boolean
-  playerId    String?
-  placedAt    DateTime @default(now())
+  id           String          @id @default(cuid())
+  auctionId    String
+  auction      Auction         @relation(fields: [auctionId], references: [id])
+  bidderName   String
+  amount       Float
+  isNPC        Boolean
+  playerId     String?
+  player       Player?         @relation(fields: [playerId], references: [id])
+  placedAt     DateTime        @default(now())
+  supersededAt DateTime?
+  reservation  BidReservation?
+  leadsAuction Auction?        @relation("LeadingBid")
+  winsAuction  Auction?        @relation("WinningBid")
+
+  @@index([auctionId, placedAt])
+  @@index([auctionId, amount])
 }
 
 model Player {
-  id        String       @id
-  wallet    Float        @default(100)
-  isDiving  Boolean      @default(false)
-  inventory PlayerItem[]
+  id               String           @id
+  wallet           Float            @default(100)
+  isDiving         Boolean          @default(false)
+  inventory        PlayerItem[]
+  bids             Bid[]
+  reservations     BidReservation[]
+  leadingAuctions  Auction[]        @relation("LeadingPlayer")
+  winningAuctions  Auction[]        @relation("WinningPlayer")
 }
 
 model PlayerItem {
@@ -54,10 +97,31 @@ model PlayerItem {
   item        Item      @relation(fields: [itemId], references: [id])
   acquiredFor Float
   listedAt    DateTime?
+  auctions    Auction[]
 }
 
 model NPCPersona {
   id             String @id @default(cuid())
   name           String @unique
   aggressionSeed Float
+}
+
+model BidReservation {
+  id         String               @id @default(cuid())
+  auctionId  String
+  auction    Auction              @relation(fields: [auctionId], references: [id])
+  playerId   String
+  player     Player               @relation(fields: [playerId], references: [id])
+  bidId      String?              @unique
+  bid        Bid?                 @relation(fields: [bidId], references: [id])
+  amount     Float
+  status     BidReservationStatus @default(active)
+  createdAt  DateTime             @default(now())
+  releasedAt DateTime?
+  consumedAt DateTime?
+  expiresAt  DateTime?
+  reason     String?
+
+  @@index([auctionId, status])
+  @@index([playerId, status])
 }

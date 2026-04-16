@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { AuctionLifecycleError, placeBid } from "@/lib/game/auctionLifecycle";
 
 // Probability function
 // P(bid) = baseRate * (1 - price/V)^k * (1 - elapsed/duration)^j
@@ -54,7 +55,10 @@ export async function evaluateNPCBids() {
         const bidAmount = calculateNPCBidAmount(auction.currentBid, auction.item.internalValue, persona.aggressionSeed);
 
         //console.log(`NPC ${persona.name} scheduling bid of $${bidAmount} on ${auction.item.name}`);
-        scheduleNPCBid(auction.id, persona.name, bidAmount, (5 + Math.random() * 20) * 1000);
+        // Schedule the bid but attach a catch handler so failures don't become unhandled rejections
+        scheduleNPCBid(auction.id, persona.name, bidAmount, (5 + Math.random() * 20) * 1000).catch((err) => {
+            console.error("NPC bid scheduling failed", { auctionId: auction.id, err });
+        });
     }
 }
 
@@ -69,18 +73,17 @@ async function scheduleNPCBid(auctionId: string, personaName: string, amount: nu
     if (!auction || auction.status !== "active" || new Date() > auction.endsAt) return;
     if (amount <= auction.currentBid) return;
 
-    await prisma.bid.create({
-        data: {
+    try {
+        await placeBid({
             auctionId,
             bidderName: personaName,
             amount,
             isNPC: true,
-            placedAt: new Date(),
-        },
-    });
-
-    await prisma.auction.update({
-        where: { id: auctionId },
-        data: { currentBid: amount },
-    });
+        });
+    } catch (error) {
+        if (error instanceof AuctionLifecycleError) {
+            return;
+        }
+        throw error;
+    }
 }

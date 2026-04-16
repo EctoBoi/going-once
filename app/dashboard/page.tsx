@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import ActiveListingCard from "@/components/ActiveListingCard";
 import MarketEvaluator from "@/components/MarketEvaluator";
+import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -11,6 +12,8 @@ export default async function DashboardPage() {
         data: { user },
     } = await supabase.auth.getUser();
     if (!user) redirect("/auth/login");
+
+    await reconcileAuctionLifecycle();
 
     const player = await prisma.player.findUnique({
         where: { id: user.id },
@@ -34,9 +37,9 @@ export default async function DashboardPage() {
 
     const activeListingAuctions = await prisma.auction.findMany({
         where: {
-            itemId: { in: activeListings.map((l) => l.itemId) },
+            playerItemId: { in: activeListings.map((listing) => listing.id) },
             listedBy: user.id,
-            status: "active",
+            status: { in: ["active", "resolving"] },
         },
         include: {
             bids: {
@@ -96,7 +99,7 @@ export default async function DashboardPage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeListings.map((playerItem) => {
-                            const auction = serializedListingAuctions.find((a) => a.itemId === playerItem.itemId);
+                            const auction = serializedListingAuctions.find((a) => a.playerItemId === playerItem.id);
                             return <ActiveListingCard key={playerItem.id} playerItem={playerItem} auction={auction ?? null} />;
                         })}
                     </div>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import AuctionDetail from "@/components/auction/AuctionDetail";
+import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 
 export default async function AuctionPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -10,6 +11,8 @@ export default async function AuctionPage({ params }: { params: Promise<{ id: st
         data: { user },
     } = await supabase.auth.getUser();
     if (!user) redirect("/auth/login");
+
+    await reconcileAuctionLifecycle();
 
     const auction = await prisma.auction.findUnique({
         where: { id },

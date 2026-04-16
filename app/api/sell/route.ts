@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { AuctionLifecycleError, createListing, reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -12,36 +12,21 @@ export async function POST(request: Request) {
 
         const { playerItemId, minBid, durationMinutes } = await request.json();
 
-        const playerItem = await prisma.playerItem.findUnique({
-            where: { id: playerItemId },
-        });
-
-        if (!playerItem) return NextResponse.json({ ok: false, error: "Item not found" }, { status: 404 });
-        if (playerItem.playerId !== user.id) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-        if (playerItem.listedAt) return NextResponse.json({ ok: false, error: "Already listed" }, { status: 400 });
-
         const clampedDuration = Math.min(10, Math.max(1, durationMinutes ?? 2));
-        const endsAt = new Date(Date.now() + clampedDuration * 60 * 1000);
 
-        await Promise.all([
-            prisma.auction.create({
-                data: {
-                    itemId: playerItem.itemId,
-                    minBid,
-                    currentBid: minBid,
-                    endsAt,
-                    listedBy: user.id,
-                    status: "active",
-                },
-            }),
-            prisma.playerItem.update({
-                where: { id: playerItemId },
-                data: { listedAt: new Date() },
-            }),
-        ]);
+        await reconcileAuctionLifecycle();
+        await createListing({
+            playerId: user.id,
+            playerItemId,
+            minBid,
+            durationMinutes: clampedDuration,
+        });
 
         return NextResponse.json({ ok: true });
     } catch (error) {
+        if (error instanceof AuctionLifecycleError) {
+            return NextResponse.json({ ok: false, error: error.message }, { status: error.statusCode });
+        }
         console.error("Sell error:", error);
         return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
     }
