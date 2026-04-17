@@ -16,8 +16,13 @@ type AuctionData = {
     id: string;
     currentBid: number;
     minBid: number;
+    buyNow?: number | null;
     endsAt: string;
     status: string;
+    listedBy: string;
+    hostName?: string | null;
+    hostIsNPC?: boolean;
+    leadingPlayerId?: string | null;
     item: { name: string; category: string };
     bids: Bid[];
 };
@@ -29,7 +34,15 @@ type ModalPayload = {
     currentPlayerId: string;
 };
 
-export default function AuctionModal({ auctionId, onClose }: { auctionId: string; onClose: () => void }) {
+export default function AuctionModal({
+    auctionId,
+    onClose,
+    onWalletUpdate,
+}: {
+    auctionId: string;
+    onClose: () => void;
+    onWalletUpdate?: (wallet: number) => void;
+}) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [payload, setPayload] = useState<ModalPayload | null>(null);
@@ -112,6 +125,7 @@ export default function AuctionModal({ auctionId, onClose }: { auctionId: string
                         isOwnListing={payload.isOwnListing}
                         currentPlayerId={payload.currentPlayerId}
                         onClose={onClose}
+                        onWalletUpdate={onWalletUpdate}
                     />
                 )}
             </div>

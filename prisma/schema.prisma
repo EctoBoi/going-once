@@ -41,6 +41,8 @@ model Auction {
   endsAt          DateTime
   createdAt       DateTime      @default(now())
   listedBy        String
+  hostName        String?
+  hostIsNPC       Boolean       @default(false)
   status          AuctionStatus @default(active)
   resolvingAt     DateTime?
   resolvedAt      DateTime?

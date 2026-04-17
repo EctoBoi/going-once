@@ -9,7 +9,7 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
 
     const [minBid, setMinBid] = useState(defaultMinBid);
     const [buyNow, setBuyNow] = useState(defaultBuyNow);
-    const [duration, setDuration] = useState(2);
+    const [duration, setDuration] = useState(3);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [isDiving, setIsDiving] = useState(false);

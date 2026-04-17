@@ -4,6 +4,7 @@ import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import NavHeader from "@/components/NavHeader";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default async function RootLayout({
             <body className="min-h-full flex flex-col">
                 <NavHeader username={username} />
                 {children}
+                <Toaster position="bottom-right" toastOptions={{ duration: 5000 }} />
             </body>
         </html>
     );

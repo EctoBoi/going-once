@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import MarketEvaluator from "@/components/MarketEvaluator";
 
@@ -19,8 +20,13 @@ type Auction = {
     id: string;
     currentBid: number;
     minBid: number;
+    buyNow?: number | null;
     endsAt: string;
     status: string;
+    listedBy: string;
+    hostName?: string | null;
+    hostIsNPC?: boolean;
+    leadingPlayerId?: string | null;
     item: {
         name: string;
         category: string;
@@ -60,27 +66,59 @@ export default function AuctionDetail({
     isOwnListing,
     currentPlayerId,
     onClose,
+    onWalletUpdate,
 }: {
     auction: Auction;
     playerWallet: number;
     isOwnListing: boolean;
     currentPlayerId?: string;
     onClose?: () => void;
+    onWalletUpdate?: (wallet: number) => void;
 }) {
     const [currentBid, setCurrentBid] = useState(auction.currentBid);
+    const [leadingPlayerId, setLeadingPlayerId] = useState<string | null>(auction.leadingPlayerId ?? null);
+    const [buyNow] = useState<number | null | undefined>(auction.buyNow);
     const [bids, setBids] = useState(auction.bids);
     const [bidAmount, setBidAmount] = useState("");
     const [wallet, setWallet] = useState(playerWallet);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [buyNowLoading, setBuyNowLoading] = useState(false);
     const [isDiving, setIsDiving] = useState(false);
     const { timeLeft, ended } = useCountdown(auction.endsAt);
     const router = useRouter();
 
+    const isLeading = currentPlayerId && leadingPlayerId === currentPlayerId;
+
+    // Re-fetch auction (bids + current state) as a polling fallback
+    // in case Supabase Realtime on the Bid table is not enabled
+    useEffect(() => {
+        let mounted = true;
+        async function pollAuction() {
+            try {
+                const res = await fetch(`/api/auctions/${auction.id}`);
+                if (!res.ok || !mounted) return;
+                const data = await res.json();
+                if (!data.auction) return;
+                const a = data.auction;
+                setCurrentBid(a.currentBid);
+                setLeadingPlayerId(a.leadingPlayerId ?? null);
+                setBids(a.bids ?? []);
+            } catch {
+                // ignore
+            }
+        }
+        const interval = setInterval(pollAuction, 10000);
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+        };
+    }, [auction.id]);
+
     // Realtime subscription
     useEffect(() => {
         const channel = supabase
-            .channel(`auction-${auction.id}`)
+            .channel(`auction-detail-${auction.id}`)
             .on(
                 "postgres_changes",
                 {
@@ -100,6 +138,26 @@ export default function AuctionDetail({
                     };
                     setBids((prev) => [newBid, ...prev]);
                     setCurrentBid(newBid.amount);
+                    setLeadingPlayerId(newBid.playerId);
+
+                    // Toast if the current player was outbid
+                    if (currentPlayerId && isLeading && newBid.playerId !== currentPlayerId) {
+                        toast.error(`You were outbid on ${auction.item.name}! New bid: $${newBid.amount.toFixed(2)}`);
+                    }
+                },
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "Auction",
+                    filter: `id=eq.${auction.id}`,
+                },
+                (payload) => {
+                    const updated = payload.new as { currentBid: number; leadingPlayerId: string | null; status: string };
+                    setCurrentBid(updated.currentBid);
+                    setLeadingPlayerId(updated.leadingPlayerId);
                 },
             )
             .subscribe();
@@ -107,7 +165,7 @@ export default function AuctionDetail({
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [auction.id]);
+    }, [auction.id, auction.item.name, currentPlayerId, isLeading]);
 
     const minNextBid = currentBid + 1;
 
@@ -139,9 +197,44 @@ export default function AuctionDetail({
         }
 
         setCurrentBid(data.currentBid);
+        setLeadingPlayerId(currentPlayerId ?? null);
         setWallet(data.wallet);
+        onWalletUpdate?.(data.wallet);
+        // Optimistically add bid to history
+        setBids((prev) => [
+            {
+                id: `optimistic-${Date.now()}`,
+                bidderName: "You",
+                amount: data.currentBid,
+                isNPC: false,
+                playerId: currentPlayerId ?? null,
+                placedAt: new Date().toISOString(),
+            },
+            ...prev.filter((b) => !b.id.startsWith("optimistic-")),
+        ]);
         setBidAmount("");
+        toast.success(`Bid placed: $${data.currentBid.toFixed(2)}`);
         setLoading(false);
+    }
+
+    async function handleBuyNow() {
+        setError(null);
+        setBuyNowLoading(true);
+        const res = await fetch(`/api/auctions/${auction.id}/buy-now`, { method: "POST" });
+        const data = await res.json();
+
+        if (!data.ok) {
+            setError(data.error);
+            setBuyNowLoading(false);
+            return;
+        }
+
+        setWallet(data.wallet);
+        onWalletUpdate?.(data.wallet);
+        toast.success(`🎉 You bought ${auction.item.name} for $${buyNow?.toFixed(2)}!`);
+        setBuyNowLoading(false);
+        onClose?.();
+        router.refresh();
     }
 
     useEffect(() => {
@@ -152,7 +245,7 @@ export default function AuctionDetail({
                 const data = await res.json();
                 if (!mounted) return;
                 setIsDiving(Boolean(data?.isDiving));
-            } catch (e) {
+            } catch {
                 // ignore
             }
         })();
@@ -160,6 +253,8 @@ export default function AuctionDetail({
             mounted = false;
         };
     }, []);
+
+    const hostLabel = auction.hostName ?? (auction.hostIsNPC ? "NPC" : "Unknown");
 
     return (
         <main className={onClose ? "p-6" : "min-h-screen p-8 max-w-2xl mx-auto"}>
@@ -178,6 +273,10 @@ export default function AuctionDetail({
                     <div>
                         <h1 className="text-2xl font-bold">{auction.item.name}</h1>
                         <p className="text-sm text-gray-500 capitalize mt-1">{auction.item.category}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Hosted by <span className={auction.hostIsNPC ? "text-yellow-400 font-medium" : "text-gray-300"}>{hostLabel}</span>
+                            {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
+                        </p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-gray-500">Time left</p>
@@ -185,11 +284,18 @@ export default function AuctionDetail({
                     </div>
                 </div>
 
-                <div className="mt-6 flex justify-between items-center">
+                <div className="mt-6 flex justify-between items-center flex-wrap gap-4">
                     <div>
                         <p className="text-xs text-gray-500">Current bid</p>
                         <p className="text-3xl font-bold">${currentBid.toFixed(2)}</p>
+                        {isLeading && <p className="text-xs text-green-400 font-medium mt-0.5">You are leading!</p>}
                     </div>
+                    {buyNow != null && (
+                        <div className="text-center">
+                            <p className="text-xs text-gray-500">Buy Now price</p>
+                            <p className="text-2xl font-bold text-emerald-400">${buyNow.toFixed(2)}</p>
+                        </div>
+                    )}
                     <div className="text-right">
                         <p className="text-xs text-gray-500">Your wallet</p>
                         <p className="text-xl font-semibold">${wallet.toFixed(2)}</p>
@@ -197,24 +303,36 @@ export default function AuctionDetail({
                 </div>
 
                 {!ended && !isOwnListing && (
-                    <div className="mt-6 flex gap-2">
-                        <input
-                            type="number"
-                            placeholder={`Min $${minNextBid.toFixed(2)}`}
-                            value={bidAmount}
-                            onChange={(e) => setBidAmount(e.target.value)}
-                            className="border rounded p-2 flex-1"
-                            min={minNextBid}
-                            step="0.01"
-                        />
-                        {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
-                        <button onClick={handleBid} disabled={loading || isDiving} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
-                            {loading ? "Bidding..." : "Bid"}
-                        </button>
+                    <div className="mt-6 space-y-2">
+                        <div className="flex gap-2">
+                            <input
+                                type="number"
+                                placeholder={`Min $${minNextBid.toFixed(2)}`}
+                                value={bidAmount}
+                                onChange={(e) => setBidAmount(e.target.value)}
+                                className="border rounded p-2 flex-1"
+                                min={minNextBid}
+                                step="0.01"
+                            />
+                            {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
+                            <button onClick={handleBid} disabled={loading || isDiving} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
+                                {loading ? "Bidding..." : "Bid"}
+                            </button>
+                        </div>
+
+                        {buyNow != null && buyNow > currentBid && (
+                            <button
+                                onClick={handleBuyNow}
+                                disabled={buyNowLoading || isDiving || wallet < buyNow}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded font-semibold disabled:opacity-50 transition-colors"
+                            >
+                                {buyNowLoading ? "Processing..." : `Buy Now — $${buyNow.toFixed(2)}`}
+                            </button>
+                        )}
                     </div>
                 )}
 
-                {!ended && isOwnListing && <p className="mt-6 text-sm text-gray-500 italic">This is your listing — you cannot bid on it.</p>}
+                {!ended && isOwnListing && <p className="mt-6 text-sm text-gray-500 italic">This is your listing — you cannot bid or buy it.</p>}
 
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
             </div>
@@ -232,6 +350,7 @@ export default function AuctionDetail({
                                     <span className="font-medium">
                                         {bid.bidderName}
                                         {isYou && <span className="ml-1 text-blue-600 font-semibold">(You)</span>}
+                                        {bid.isNPC && <span className="ml-1 text-yellow-500 text-xs">[NPC]</span>}
                                     </span>
                                     <span>${bid.amount.toFixed(2)}</span>
                                 </div>

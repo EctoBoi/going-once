@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import { createClient } from "@/lib/supabase/client";
 import SellModal from "@/components/SellModal";
 import ActiveListingCard from "@/components/ActiveListingCard";
 import DumpsterDive from "@/components/DumpsterDive";
+import InventoryModal from "@/components/InventoryModal";
 import AuctionFeed from "@/components/auction/AuctionFeed";
 import AuctionModal from "@/components/auction/AuctionModal";
 import MarketEvaluator from "@/components/MarketEvaluator";
@@ -27,9 +29,13 @@ type Auction = {
     id: string;
     currentBid: number;
     minBid: number;
+    buyNow?: number | null;
     endsAt: string;
     status: string;
     listedBy: string;
+    hostName?: string | null;
+    hostIsNPC?: boolean;
+    leadingPlayerId?: string | null;
     bidCount: number;
     item: { id: string; name: string; category: string };
 };
@@ -44,17 +50,159 @@ type Props = {
     diveFinishesAt: string | null;
 };
 
+const supabase = createClient();
+
 export default function DashboardShell({
-    wallet,
-    inventory,
-    activeListings,
+    wallet: initialWallet,
+    inventory: initialInventory,
+    activeListings: initialActiveListings,
     serializedListingAuctions,
     initialAuctions,
     currentPlayerId,
     diveFinishesAt,
 }: Props) {
     const [selectedAuctionId, setSelectedAuctionId] = useState<string | null>(null);
-    const [sellItem, setSellItem] = useState<{ id: string; acquiredFor: number } | null>(null);
+    const [sellItem, setSellItem] = useState<{ id: string; acquiredFor: number; itemName: string } | null>(null);
+    const [inventoryOpen, setInventoryOpen] = useState(false);
+    const [wallet, setWallet] = useState(initialWallet);
+    const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
+    const [activeListings, setActiveListings] = useState<InventoryItem[]>(initialActiveListings);
+    // Track names of player's listed items for toast messages
+    const listingNamesRef = useRef<Map<string, string>>(
+        new Map(
+            initialActiveListings.map((item) => {
+                const auction = serializedListingAuctions.find((a) => a.playerItemId === item.id);
+                return [auction?.id ?? "", item.item.name] as [string, string];
+            }),
+        ),
+    );
+
+    async function refreshInventory() {
+        try {
+            const res = await fetch("/api/player/inventory");
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.ok) {
+                setInventory(data.inventory);
+                setActiveListings(data.activeListings);
+                setWallet(data.wallet);
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    // Supabase realtime: watch player row for wallet changes
+    useEffect(() => {
+        const playerChannel = supabase
+            .channel(`player-wallet-${currentPlayerId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "player",
+                    filter: `id=eq.${currentPlayerId}`,
+                },
+                (payload) => {
+                    const updated = payload.new as { wallet: number };
+                    setWallet(updated.wallet);
+                },
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(playerChannel);
+        };
+    }, [currentPlayerId]);
+
+    // Supabase realtime: watch playerItem table for inventory changes
+    useEffect(() => {
+        const itemChannel = supabase
+            .channel(`player-items-${currentPlayerId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "PlayerItem",
+                    filter: `playerId=eq.${currentPlayerId}`,
+                },
+                () => {
+                    // Re-fetch full inventory on any playerItem change
+                    refreshInventory();
+                },
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(itemChannel);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPlayerId]);
+
+    // Supabase subscription: watch auctions the player listed so we can toast sold / won events
+    useEffect(() => {
+        const channel = supabase
+            .channel("dashboard:player-auctions")
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "Auction",
+                    filter: `listedBy=eq.${currentPlayerId}`,
+                },
+                (payload) => {
+                    const updated = payload.new as {
+                        id: string;
+                        status: string;
+                        currentBid: number;
+                        winningPlayerId: string | null;
+                    };
+
+                    if (updated.status === "resolved") {
+                        const name = listingNamesRef.current.get(updated.id) ?? "your item";
+                        if (updated.winningPlayerId) {
+                            toast.success(`💰 Your listing "${name}" sold for $${updated.currentBid.toFixed(2)}!`);
+                        } else {
+                            toast(`Your listing "${name}" ended with no winner.`, { icon: "ℹ️" });
+                        }
+                    }
+                },
+            )
+            // Also watch auctions the player is the leading bidder on (to detect wins and refunds)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "Auction",
+                },
+                (payload) => {
+                    const updated = payload.new as {
+                        id: string;
+                        status: string;
+                        currentBid: number;
+                        winningPlayerId: string | null;
+                        leadingPlayerId: string | null;
+                        listedBy: string;
+                    };
+
+                    // Player won the auction — also refresh inventory to show the new item
+                    if (updated.status === "resolved" && updated.winningPlayerId === currentPlayerId && updated.listedBy !== currentPlayerId) {
+                        toast.success(`🎉 You won an item for $${updated.currentBid.toFixed(2)}!`);
+                        refreshInventory();
+                    }
+                },
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPlayerId]);
 
     return (
         <div className="flex-1 flex overflow-hidden">
@@ -68,34 +216,24 @@ export default function DashboardShell({
                     <p className="font-bold text-lg text-white">${wallet.toFixed(2)}</p>
                 </div>
 
-                <div className="flex flex-col gap-5 p-4">
-                    {/* Inventory */}
+                <div className="flex flex-col gap-4 p-4">
+                    {/* Inventory button */}
                     <section>
-                        <h2 className="font-semibold text-xs uppercase tracking-wide text-gray-300 mb-2">Inventory</h2>
-                        {inventory.length === 0 ? (
-                            <p className="text-gray-400 text-sm">Nothing yet. Win an auction.</p>
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {inventory.map((item) => (
-                                    <div key={item.id} className="border rounded-lg p-3 flex justify-between items-center gap-2 bg-gray-800">
-                                        <div className="min-w-0">
-                                            <p className="font-medium text-sm truncate">{item.item.name}</p>
-                                            <p className="text-xs text-gray-500 capitalize">{item.item.category}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                {item.acquiredFor === 0 ? "Found in trash" : `Paid $${item.acquiredFor.toFixed(2)}`}
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSellItem({ id: item.id, acquiredFor: item.acquiredFor })}
-                                            className="text-xs border px-2 py-1 rounded hover:bg-gray-500 shrink-0 bg-gray-700 text-sm"
-                                        >
-                                            List
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => setInventoryOpen(true)}
+                            className="w-full text-lg font-semibold border border-gray-700 px-3 py-4 rounded-lg hover:bg-gray-800 transition-colors text-gray-200 flex items-center justify-between"
+                        >
+                            <span>🎒 Inventory</span>
+                            <span className="text-xs text-gray-400 font-normal">
+                                {inventory.length} item{inventory.length !== 1 ? "s" : ""}
+                            </span>
+                        </button>
+                    </section>
+
+                    {/* Dumpster dive */}
+                    <section>
+                        <DumpsterDive initialDiveFinishesAt={diveFinishesAt} onDiveComplete={refreshInventory} />
                     </section>
 
                     {/* Active listings */}
@@ -117,12 +255,6 @@ export default function DashboardShell({
                             </div>
                         </section>
                     )}
-
-                    {/* Dumpster dive */}
-                    <section>
-                        <h2 className="font-semibold text-xs uppercase tracking-wide text-gray-400 mb-2">Actions</h2>
-                        <DumpsterDive initialDiveFinishesAt={diveFinishesAt} />
-                    </section>
                 </div>
             </aside>
 
@@ -132,10 +264,23 @@ export default function DashboardShell({
             </main>
 
             {/* Auction detail modal */}
-            {selectedAuctionId && <AuctionModal auctionId={selectedAuctionId} onClose={() => setSelectedAuctionId(null)} />}
+            {selectedAuctionId && (
+                <AuctionModal auctionId={selectedAuctionId} onClose={() => setSelectedAuctionId(null)} onWalletUpdate={(w) => setWallet(w)} />
+            )}
+
+            {/* Inventory modal */}
+            {inventoryOpen && <InventoryModal inventory={inventory} onClose={() => setInventoryOpen(false)} onSell={(item) => setSellItem(item)} />}
 
             {/* Sell modal */}
-            {sellItem && <SellModal playerItemId={sellItem.id} acquiredFor={sellItem.acquiredFor} onClose={() => setSellItem(null)} />}
+            {sellItem && (
+                <SellModal
+                    playerItemId={sellItem.id}
+                    acquiredFor={sellItem.acquiredFor}
+                    itemName={sellItem.itemName}
+                    onClose={() => setSellItem(null)}
+                    onSuccess={refreshInventory}
+                />
+            )}
         </div>
     );
 }

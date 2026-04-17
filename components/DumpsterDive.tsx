@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type DiveState = { status: "idle" } | { status: "diving"; diveFinishesAt: string } | { status: "complete"; awardedItem: { name: string } | null };
 
-export default function DumpsterDive({ initialDiveFinishesAt }: { initialDiveFinishesAt: string | null }) {
+export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: { initialDiveFinishesAt: string | null; onDiveComplete?: () => void }) {
     const [state, setState] = useState<DiveState>(
         initialDiveFinishesAt && new Date(initialDiveFinishesAt) > new Date()
             ? { status: "diving", diveFinishesAt: initialDiveFinishesAt }
@@ -44,6 +44,7 @@ export default function DumpsterDive({ initialDiveFinishesAt }: { initialDiveFin
                 const data = await res.json();
                 if (data.completed) {
                     setState({ status: "complete", awardedItem: data.awardedItem ?? null });
+                    onDiveComplete?.();
                 } else if (!data.isDiving) {
                     setState({ status: "idle" });
                 }
@@ -84,7 +85,7 @@ export default function DumpsterDive({ initialDiveFinishesAt }: { initialDiveFin
                 ) : (
                     <p className="text-sm text-green-700 mt-1">Nothing useful this time.</p>
                 )}
-                <button onClick={dismiss} className="mt-3 text-sm border px-3 py-1 rounded hover:bg-green-100">
+                <button onClick={dismiss} className="mt-3 text-sm border px-3 py-1 rounded bg-green-600 hover:bg-green-500">
                     OK
                 </button>
             </div>

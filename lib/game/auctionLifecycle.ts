@@ -1,6 +1,7 @@
 import { AuctionStatus, BidReservationStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { NPC_PERSONAS } from "@/lib/game/npcPersonas";
 
 const TARGET_ACTIVE_SYSTEM_AUCTIONS = 5;
 const STALE_RESOLVING_TIMEOUT_MS = 60_000;
@@ -25,6 +26,16 @@ type PlaceBidInput = {
     playerId?: string;
     now?: Date;
 };
+
+function randomNPCHost() {
+    return NPC_PERSONAS[Math.floor(Math.random() * NPC_PERSONAS.length)];
+}
+
+function randomBuyNow(internalValue: number): number {
+    // [-5%, +20%] of internal value
+    const factor = 0.95 + Math.random() * 0.25;
+    return Math.round(internalValue * factor * 100) / 100;
+}
 
 type CreateListingInput = {
     playerId: string;
@@ -88,7 +99,7 @@ function randomDuration() {
 }
 
 function randomMinBid(internalValue: number) {
-    const factor = 0.4 + Math.random() * 0.3;
+    const factor = 0.2 + Math.random() * 0.2;
     return Math.round(internalValue * factor * 100) / 100;
 }
 
@@ -339,14 +350,19 @@ async function replenishSystemAuctions(now: Date) {
 
             const minBid = randomMinBid(item.internalValue);
             const endsAt = new Date(now.getTime() + randomDuration());
+            const npc = randomNPCHost();
+            const buyNow = randomBuyNow(item.internalValue);
 
             await tx.auction.create({
                 data: {
                     itemId: item.id,
                     minBid,
+                    buyNow,
                     currentBid: minBid,
                     endsAt,
                     listedBy: "system",
+                    hostName: npc.name,
+                    hostIsNPC: true,
                     status: AuctionStatus.active,
                 },
             });
@@ -399,6 +415,10 @@ export async function placeBid(input: PlaceBidInput) {
         }
         if (!input.isNPC && !input.playerId) {
             throw new AuctionLifecycleError("Player bids require a player id", 500, "missing_player_id");
+        }
+        // Prevent the auction host from bidding on their own listing
+        if (!input.isNPC && input.playerId && auction.listedBy === input.playerId) {
+            throw new AuctionLifecycleError("You cannot bid on your own auction", 403, "self_bid_forbidden");
         }
 
         const activeReservation = auction.reservations[0] ?? null;
@@ -543,6 +563,8 @@ export async function createListing(input: CreateListingInput) {
                 currentBid: input.minBid,
                 endsAt,
                 listedBy: input.playerId,
+                hostName: player.username ?? `Player-${input.playerId.slice(0, 6)}`,
+                hostIsNPC: false,
                 status: AuctionStatus.active,
             },
         });
@@ -550,10 +572,10 @@ export async function createListing(input: CreateListingInput) {
 }
 
 /**
- * Execute an NPC buy-now on a player auction.
+ * Execute a buy-now on an auction. Supports both NPC and player buyers.
  * The auction is immediately settled at the buyNow price.
  */
-export async function executeBuyNow(input: { auctionId: string; bidderName: string }) {
+export async function executeBuyNow(input: { auctionId: string; bidderName: string; playerId?: string; isPlayer?: boolean }) {
     const now = new Date();
 
     await withSerializableTransaction(async (tx) => {
@@ -574,11 +596,24 @@ export async function executeBuyNow(input: { auctionId: string; bidderName: stri
         if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
             throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
         }
-        if (!auction.playerItemId) {
-            throw new AuctionLifecycleError("Buy-now only valid for player listings", 400, "not_player_listing");
-        }
         if (auction.buyNow <= auction.currentBid) {
             throw new AuctionLifecycleError("Buy-now price already exceeded by current bid", 400, "buy_now_exceeded");
+        }
+        // Prevent the host from buying out their own listing
+        if (input.isPlayer && input.playerId && auction.listedBy === input.playerId) {
+            throw new AuctionLifecycleError("You cannot buy your own listing", 403, "self_buy_forbidden");
+        }
+
+        const isNPCBuyer = !input.isPlayer;
+
+        if (input.isPlayer && input.playerId) {
+            const buyer = await tx.player.findUnique({ where: { id: input.playerId } });
+            if (!buyer) {
+                throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
+            }
+            if (buyer.wallet < auction.buyNow) {
+                throw new AuctionLifecycleError("Insufficient funds", 400, "insufficient_funds");
+            }
         }
 
         const activeReservation = auction.reservations[0] ?? null;
@@ -598,11 +633,31 @@ export async function executeBuyNow(input: { auctionId: string; bidderName: stri
                 auctionId: auction.id,
                 bidderName: input.bidderName,
                 amount: auction.buyNow,
-                isNPC: true,
-                playerId: null,
+                isNPC: isNPCBuyer,
+                playerId: input.playerId ?? null,
                 placedAt: now,
             },
         });
+
+        if (input.isPlayer && input.playerId) {
+            // Deduct from player wallet; settlement will transfer to seller
+            await tx.player.update({
+                where: { id: input.playerId },
+                data: { wallet: { decrement: auction.buyNow } },
+            });
+
+            await tx.bidReservation.create({
+                data: {
+                    auctionId: auction.id,
+                    playerId: input.playerId,
+                    bidId: bid.id,
+                    amount: auction.buyNow,
+                    status: BidReservationStatus.active,
+                    expiresAt: now,
+                    reason: "buy_now",
+                },
+            });
+        }
 
         // Force auction into resolving state immediately
         await tx.auction.update({
@@ -610,7 +665,7 @@ export async function executeBuyNow(input: { auctionId: string; bidderName: stri
             data: {
                 currentBid: auction.buyNow,
                 leadingBidId: bid.id,
-                leadingPlayerId: null,
+                leadingPlayerId: input.playerId ?? null,
                 endsAt: now,
                 status: AuctionStatus.resolving,
                 resolvingAt: now,

@@ -4,7 +4,19 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SellForm from "@/components/SellForm";
 
-export default function SellModal({ playerItemId, acquiredFor, onClose }: { playerItemId: string; acquiredFor: number; onClose: () => void }) {
+export default function SellModal({
+    playerItemId,
+    acquiredFor,
+    itemName,
+    onClose,
+    onSuccess,
+}: {
+    playerItemId: string;
+    acquiredFor: number;
+    itemName?: string;
+    onClose: () => void;
+    onSuccess?: () => void;
+}) {
     const router = useRouter();
     useEffect(() => {
         function handleKey(e: KeyboardEvent) {
@@ -33,11 +45,18 @@ export default function SellModal({ playerItemId, acquiredFor, onClose }: { play
                 >
                     ×
                 </button>
-                <h2 className="text-lg font-semibold mb-3">List Item</h2>
+                <h2 className="text-lg font-semibold mb-0.5">List Item for Auction</h2>
+                {itemName && (
+                    <p className="text-sm text-gray-400 mb-3">
+                        {itemName}
+                        {acquiredFor > 0 ? ` — paid $${acquiredFor.toFixed(2)}` : " — found in trash"}
+                    </p>
+                )}
                 <SellForm
                     playerItemId={playerItemId}
                     acquiredFor={acquiredFor}
                     onSuccess={() => {
+                        onSuccess?.();
                         onClose();
                         router.refresh();
                     }}

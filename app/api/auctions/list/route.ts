@@ -25,9 +25,13 @@ export async function GET() {
         id: a.id,
         currentBid: a.currentBid,
         minBid: a.minBid,
+        buyNow: a.buyNow,
         endsAt: a.endsAt.toISOString(),
         status: a.status,
         listedBy: a.listedBy,
+        hostName: a.hostName,
+        hostIsNPC: a.hostIsNPC,
+        leadingPlayerId: a.leadingPlayerId,
         bidCount: a._count.bids,
         item: a.item,
     }));
