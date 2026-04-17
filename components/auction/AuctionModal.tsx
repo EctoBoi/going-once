@@ -32,6 +32,7 @@ type ModalPayload = {
     playerWallet: number;
     isOwnListing: boolean;
     currentPlayerId: string;
+    currentPlayerName?: string;
 };
 
 export default function AuctionModal({
@@ -69,6 +70,7 @@ export default function AuctionModal({
                         playerWallet: json.playerWallet,
                         isOwnListing: json.isOwnListing,
                         currentPlayerId: json.currentPlayerId,
+                        currentPlayerName: json.currentPlayerName,
                     });
                 } else {
                     setError(json.error ?? "Failed to load auction");
@@ -124,6 +126,7 @@ export default function AuctionModal({
                         playerWallet={payload.playerWallet}
                         isOwnListing={payload.isOwnListing}
                         currentPlayerId={payload.currentPlayerId}
+                        currentPlayerName={payload.currentPlayerName}
                         onClose={onClose}
                         onWalletUpdate={onWalletUpdate}
                     />

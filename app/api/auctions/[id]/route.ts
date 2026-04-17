@@ -40,5 +40,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         playerWallet: player?.wallet ?? 0,
         isOwnListing: auction.listedBy === user.id,
         currentPlayerId: user.id,
+        currentPlayerName: player?.username ?? user.email ?? `Player-${user.id.slice(0, 6)}`,
     });
 }

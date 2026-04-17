@@ -65,6 +65,7 @@ export default function AuctionDetail({
     playerWallet,
     isOwnListing,
     currentPlayerId,
+    currentPlayerName,
     onClose,
     onWalletUpdate,
 }: {
@@ -72,6 +73,7 @@ export default function AuctionDetail({
     playerWallet: number;
     isOwnListing: boolean;
     currentPlayerId?: string;
+    currentPlayerName?: string;
     onClose?: () => void;
     onWalletUpdate?: (wallet: number) => void;
 }) {
@@ -204,7 +206,7 @@ export default function AuctionDetail({
         setBids((prev) => [
             {
                 id: `optimistic-${Date.now()}`,
-                bidderName: "You",
+                bidderName: currentPlayerName ?? "You",
                 amount: data.currentBid,
                 isNPC: false,
                 playerId: currentPlayerId ?? null,
