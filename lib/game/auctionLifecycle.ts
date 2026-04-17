@@ -62,6 +62,32 @@ function isRetryableTransactionError(error: unknown) {
         return true;
     }
 
+    // Postgres reports deadlocks with SQLSTATE '40P01' (deadlock_detected).
+    // Treat these as retryable as well to avoid permanent failures when
+    // concurrent transactions contend for the same rows.
+    if (errWithCause?.cause?.originalCode === "40P01") {
+        return true;
+    }
+
+    // Some driver wrappers include the underlying message rather than a code.
+    const errLike = error as { message?: unknown; cause?: { message?: unknown } } | undefined;
+    const message =
+        errLike && typeof errLike.message === "string"
+            ? errLike.message
+            : errLike && errLike.message !== undefined
+            ? String(errLike.message)
+            : undefined;
+    const causeMessage =
+        errLike && errLike.cause && typeof errLike.cause.message === "string"
+            ? errLike.cause.message
+            : errLike && errLike.cause && errLike.cause.message !== undefined
+            ? String(errLike.cause.message)
+            : undefined;
+    const errStr = (message ?? causeMessage ?? "").toLowerCase();
+    if (errStr.includes("deadlock")) {
+        return true;
+    }
+
     return false;
 }
 

@@ -73,6 +73,13 @@ export default function AuctionFeed({
             .on("postgres_changes", { event: "UPDATE", schema: "public", table: "Auction" }, (payload) => {
                 const updated = payload.new as Auction & { endsAt: string };
 
+                // Empty record means the table isn't in the WAL publication yet —
+                // fall back to a full API fetch so the UI stays up to date.
+                if (!updated.id) {
+                    fetchAuctions();
+                    return;
+                }
+
                 setAuctions((prev) =>
                     prev.map((a) => {
                         if (a.id !== updated.id) return a;

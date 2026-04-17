@@ -131,14 +131,16 @@ export default function AuctionDetail({
                 },
                 (payload) => {
                     const newBid = payload.new as {
-                        id: string;
+                        id?: string;
                         bidderName: string;
                         amount: number;
                         isNPC: boolean;
                         playerId: string | null;
                         placedAt: string;
                     };
-                    setBids((prev) => [newBid, ...prev]);
+                    // Empty record: table not in WAL publication — polling will catch it.
+                    if (!newBid.id) return;
+                    setBids((prev) => [newBid as typeof newBid & { id: string }, ...prev]);
                     setCurrentBid(newBid.amount);
                     setLeadingPlayerId(newBid.playerId);
 
@@ -157,9 +159,11 @@ export default function AuctionDetail({
                     filter: `id=eq.${auction.id}`,
                 },
                 (payload) => {
-                    const updated = payload.new as { currentBid: number; leadingPlayerId: string | null; status: string };
+                    const updated = payload.new as { currentBid?: number; leadingPlayerId?: string | null; status?: string };
+                    // Empty record: table not in WAL publication — polling will catch it.
+                    if (updated.currentBid === undefined) return;
                     setCurrentBid(updated.currentBid);
-                    setLeadingPlayerId(updated.leadingPlayerId);
+                    setLeadingPlayerId(updated.leadingPlayerId ?? null);
                 },
             )
             .subscribe();

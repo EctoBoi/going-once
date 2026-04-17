@@ -101,12 +101,18 @@ export default function DashboardShell({
                 {
                     event: "UPDATE",
                     schema: "public",
-                    table: "player",
+                    table: "Player",
                     filter: `id=eq.${currentPlayerId}`,
                 },
                 (payload) => {
-                    const updated = payload.new as { wallet: number };
-                    setWallet(updated.wallet);
+                    const updated = payload.new as { wallet?: number };
+                    // If wallet is missing the table isn't in the WAL publication;
+                    // fall back to a full inventory refresh which also updates the wallet.
+                    if (updated.wallet !== undefined) {
+                        setWallet(updated.wallet);
+                    } else {
+                        refreshInventory();
+                    }
                 },
             )
             .subscribe();
