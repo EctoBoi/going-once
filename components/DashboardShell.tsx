@@ -94,55 +94,53 @@ export default function DashboardShell({
 
     // Supabase realtime: watch player row for wallet changes
     useEffect(() => {
-        const playerChannel = supabase
-            .channel(`player-wallet-${currentPlayerId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "Player",
-                    filter: `id=eq.${currentPlayerId}`,
-                },
-                (payload) => {
-                    const updated = payload.new as { wallet?: number };
-                    // If wallet is missing the table isn't in the WAL publication;
-                    // fall back to a full inventory refresh which also updates the wallet.
-                    if (updated.wallet !== undefined) {
-                        setWallet(updated.wallet);
+        if (!currentPlayerId) return;
+
+        const topic = `player-wallet:${currentPlayerId}`;
+
+        const subscribe = async () => {
+            // Required for private channels + Realtime Authorization
+            await supabase.realtime.setAuth();
+
+            supabase
+                .channel(topic, { config: { private: true } })
+                .on("broadcast", { event: "UPDATE" }, (payload: any) => {
+                    // broadcast_changes payload shape includes the change metadata.
+                    // The wallet value will be inside the new row data.
+                    const updated = payload?.record?.new ?? payload?.new ?? payload?.payload?.new ?? payload;
+
+                    const wallet = updated?.wallet as number | undefined;
+
+                    // If wallet missing, you can treat it like “no WAL field” and refresh:
+                    if (wallet !== undefined) {
+                        setWallet(wallet);
                     } else {
                         refreshInventory();
                     }
-                },
-            )
-            .subscribe();
+                })
+                .subscribe();
+        };
+
+        subscribe();
 
         return () => {
-            supabase.removeChannel(playerChannel);
+            // safe cleanup: remove the channel by topic
+            supabase.removeChannel(supabase.channel(topic, { config: { private: true } }));
         };
     }, [currentPlayerId]);
 
     // Supabase realtime: watch playerItem table for inventory changes
     useEffect(() => {
-        const itemChannel = supabase
-            .channel(`player-items-${currentPlayerId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "PlayerItem",
-                    filter: `playerId=eq.${currentPlayerId}`,
-                },
-                () => {
-                    // Re-fetch full inventory on any playerItem change
-                    refreshInventory();
-                },
-            )
+        const topic = `playerId-${currentPlayerId}`;
+        supabase
+            .channel(topic, { config: { private: true } })
+            .on("broadcast", { event: "INSERT" }, () => refreshInventory())
+            .on("broadcast", { event: "UPDATE" }, () => refreshInventory())
+            .on("broadcast", { event: "DELETE" }, () => refreshInventory())
             .subscribe();
 
         return () => {
-            supabase.removeChannel(itemChannel);
+            supabase.removeChannel(supabase.channel(topic, { config: { private: true } }));
         };
     }, [currentPlayerId]);
 
