@@ -420,6 +420,10 @@ export async function placeBid(input: PlaceBidInput) {
         if (!input.isNPC && input.playerId && auction.listedBy === input.playerId) {
             throw new AuctionLifecycleError("You cannot bid on your own auction", 403, "self_bid_forbidden");
         }
+        // Prevent an NPC host from bidding on their own NPC-hosted listing
+        if (input.isNPC && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
+            throw new AuctionLifecycleError("NPCs cannot bid on their own auction", 403, "self_bid_forbidden");
+        }
 
         const activeReservation = auction.reservations[0] ?? null;
 
@@ -602,6 +606,10 @@ export async function executeBuyNow(input: { auctionId: string; bidderName: stri
         // Prevent the host from buying out their own listing
         if (input.isPlayer && input.playerId && auction.listedBy === input.playerId) {
             throw new AuctionLifecycleError("You cannot buy your own listing", 403, "self_buy_forbidden");
+        }
+        // Prevent an NPC host from buy-now'ing their own NPC-hosted listing
+        if (!input.isPlayer && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
+            throw new AuctionLifecycleError("NPCs cannot buy their own listing", 403, "self_buy_forbidden");
         }
 
         const isNPCBuyer = !input.isPlayer;
