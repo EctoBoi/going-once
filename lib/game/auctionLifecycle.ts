@@ -3,7 +3,7 @@ import { AuctionStatus, BidReservationStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { NPC_PERSONAS } from "@/lib/game/npcPersonas";
 
-const TARGET_ACTIVE_SYSTEM_AUCTIONS = 5;
+const TARGET_ACTIVE_SYSTEM_AUCTIONS = 9;
 const STALE_RESOLVING_TIMEOUT_MS = 60_000;
 const OPEN_AUCTION_STATUSES: AuctionStatus[] = [AuctionStatus.active, AuctionStatus.resolving];
 

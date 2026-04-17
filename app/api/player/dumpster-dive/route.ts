@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-const MIN_DIVE_MS = 30_000;
-const MAX_DIVE_MS = 60_000;
+const MIN_DIVE_MS = 60_000;
+const MAX_DIVE_MS = 120_000;
 
 export async function POST() {
     const supabase = await createClient();
