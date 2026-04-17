@@ -138,7 +138,6 @@ export default function DashboardShell({
         return () => {
             supabase.removeChannel(itemChannel);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPlayerId]);
 
     // Supabase subscription: watch auctions the player listed so we can toast sold / won events
@@ -201,7 +200,6 @@ export default function DashboardShell({
         return () => {
             supabase.removeChannel(channel);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentPlayerId]);
 
     return (

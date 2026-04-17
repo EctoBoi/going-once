@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import CleanupClient from "@/components/CleanupClient";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import NavHeader from "@/components/NavHeader";
@@ -45,6 +46,7 @@ export default async function RootLayout({
             <body className="min-h-full flex flex-col">
                 <NavHeader username={username} />
                 {children}
+                <CleanupClient />
                 <Toaster position="bottom-right" toastOptions={{ duration: 5000 }} />
             </body>
         </html>

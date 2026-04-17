@@ -130,3 +130,9 @@ model BidReservation {
   @@index([auctionId, status])
   @@index([playerId, status])
 }
+
+model KeyValue {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
