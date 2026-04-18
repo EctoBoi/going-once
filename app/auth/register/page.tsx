@@ -42,7 +42,8 @@ export default function RegisterPage() {
                 return;
             }
         }
-        router.push("/dashboard");
+        // Force a full-page navigation so the server receives the updated
+        window.location.href = "/dashboard";
     }
 
     return (
