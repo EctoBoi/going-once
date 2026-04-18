@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import MarketEvaluator from "@/components/MarketEvaluator";
 
 type Bid = {
@@ -119,18 +120,16 @@ export default function AuctionDetail({
 
     // Realtime subscription
     useEffect(() => {
-        const channel = supabase
-            .channel(`auction-detail-${auction.id}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "Bid",
-                    filter: `auctionId=eq.${auction.id}`,
-                },
-                (payload) => {
-                    const newBid = payload.new as {
+        let channel: ReturnType<(typeof supabase)["channel"]> | null = null;
+
+        const subscribe = async () => {
+            await supabase.realtime.setAuth();
+
+            channel = supabase
+                .channel(`auction-detail:${auction.id}`, { config: { private: true } })
+                .on("broadcast", { event: "INSERT" }, (payload) => {
+                    const { record } = extractBroadcastChange(payload);
+                    const newBid = record as {
                         id?: string;
                         bidderName: string;
                         amount: number;
@@ -138,38 +137,35 @@ export default function AuctionDetail({
                         playerId: string | null;
                         placedAt: string;
                     };
-                    // Empty record: table not in WAL publication — polling will catch it.
-                    if (!newBid.id) return;
-                    setBids((prev) => [newBid as typeof newBid & { id: string }, ...prev]);
+
+                    if (!newBid.id || typeof newBid.amount !== "number") return;
+                    setBids((prev) => {
+                        // If we already have this bid, skip adding to avoid duplicates
+                        if (prev.some((b) => b.id === newBid.id)) return prev;
+                        // Remove any optimistic placeholders before prepending the real bid
+                        const cleaned = prev.filter((b) => !b.id.startsWith("optimistic-"));
+                        return [newBid as typeof newBid & { id: string }, ...cleaned];
+                    });
                     setCurrentBid(newBid.amount);
                     setLeadingPlayerId(newBid.playerId);
+                })
+                .on("broadcast", { event: "UPDATE" }, (payload) => {
+                    const { record } = extractBroadcastChange(payload);
+                    const updated = record as { currentBid?: number; leadingPlayerId?: string | null; status?: string };
 
-                    // Toast if the current player was outbid
-                    if (currentPlayerId && isLeading && newBid.playerId !== currentPlayerId) {
-                        toast.error(`You were outbid on ${auction.item.name}! New bid: $${newBid.amount.toFixed(2)}`);
-                    }
-                },
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "Auction",
-                    filter: `id=eq.${auction.id}`,
-                },
-                (payload) => {
-                    const updated = payload.new as { currentBid?: number; leadingPlayerId?: string | null; status?: string };
-                    // Empty record: table not in WAL publication — polling will catch it.
                     if (updated.currentBid === undefined) return;
                     setCurrentBid(updated.currentBid);
                     setLeadingPlayerId(updated.leadingPlayerId ?? null);
-                },
-            )
-            .subscribe();
+                })
+                .subscribe();
+        };
+
+        subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
         };
     }, [auction.id, auction.item.name, currentPlayerId, isLeading]);
 

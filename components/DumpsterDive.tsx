@@ -109,7 +109,7 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
             className="border rounded-lg p-4 w-full text-left hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50 transition-colors"
         >
             <p className="font-semibold">🗑️ Dumpster Dive</p>
-            <p className="text-sm text-gray-500 mt-1">Search for a low-value item (60–120 seconds). Disables bidding and listing while active.</p>
+            <p className="text-sm text-gray-500 mt-1">Search for a low-value item (60-120 seconds). Disables bidding and listing while active.</p>
         </button>
     );
 }

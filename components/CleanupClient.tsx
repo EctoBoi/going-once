@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const INTERVAL_MS = 60_000;
+const INTERVAL_MS = 120_000;
 
 export default function CleanupClient() {
     useEffect(() => {

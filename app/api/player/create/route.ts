@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -34,9 +35,9 @@ export async function POST(request: Request) {
             });
 
             return NextResponse.json({ ok: true, player });
-        } catch (err: any) {
+        } catch (err: unknown) {
             // Prisma unique constraint error
-            if (err?.code === "P2002") {
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
                 return NextResponse.json({ ok: false, error: "Username already taken" }, { status: 409 });
             }
             throw err;

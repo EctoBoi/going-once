@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/auctionLifecycle";
 import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
-import { logNpcBuyDecision } from "@/lib/npc/logging";
 
 // Probability function
 // P(bid) = baseRate * (1 - price/V)^k * (1 - elapsed/duration)^j
@@ -113,18 +112,6 @@ export async function evaluateNPCBids() {
                 aggression: persona.aggressionSeed,
             });
             const drawOutcome = Math.random() < effectiveChance;
-            logNpcBuyDecision({
-                auctionId: auction.id,
-                itemId: auction.itemId,
-                buyNow: auction.buyNow,
-                internalValue: auction.item.internalValue,
-                baseChance: NPC_BASE_LOW_CHANCE,
-                aggression: persona.aggressionSeed,
-                effectiveChance,
-                drawOutcome,
-                npcPersona: persona.name,
-                timestamp: new Date().toISOString(),
-            });
 
             if (drawOutcome) {
                 executeBuyNow({ auctionId: auction.id, bidderName: persona.name }).catch((err) => {

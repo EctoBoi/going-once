@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { playerItemId: string; acquiredFor: number; onSuccess?: () => void }) {
     const defaultMinBid = (acquiredFor + 1).toFixed(2);
-    const defaultBuyNow = (Math.round(acquiredFor * 1.15 * 100) / 100).toFixed(2);
+    const defaultBuyNow = (Math.round(acquiredFor * 2 * 100) / 100).toFixed(2);
 
     const [minBid, setMinBid] = useState(defaultMinBid);
     const [buyNow, setBuyNow] = useState(defaultBuyNow);
@@ -24,7 +24,7 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
                 if (!mounted) return;
                 setIsDiving(Boolean(data?.isDiving));
             } catch (e) {
-                // ignore
+                console.error("Error checking dive status:", e);
             }
         })();
         return () => {
