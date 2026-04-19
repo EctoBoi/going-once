@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import MarketEvaluator from "@/components/MarketEvaluator";
+import { formatItemLabel } from "@/lib/game/formatItemLabel";
 
 type Bid = {
     id: string;
@@ -30,6 +31,7 @@ type Auction = {
     leadingPlayerId?: string | null;
     item: {
         name: string;
+        description?: string | null;
         category: string;
     };
     bids: Bid[];
@@ -274,7 +276,7 @@ export default function AuctionDetail({
                 <div className="flex justify-between items-start">
                     <div>
                         <h1 className="text-2xl font-bold">{auction.item.name}</h1>
-                        <p className="text-sm text-gray-500 capitalize mt-1">{auction.item.category}</p>
+                        <p className="text-sm text-gray-500 capitalize mt-1">{formatItemLabel(auction.item)}</p>
                         <p className="text-xs text-gray-400 mt-1">
                             Hosted by <span className={auction.hostIsNPC ? "text-yellow-400 font-medium" : "text-gray-300"}>{hostLabel}</span>
                             {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}

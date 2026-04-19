@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatItemLabel } from "@/lib/game/formatItemLabel";
 
 type Bid = {
     id: string;
@@ -23,6 +24,7 @@ type PlayerItem = {
     acquiredFor: number;
     item: {
         name: string;
+        description?: string | null;
         category: string;
     };
 };
@@ -70,7 +72,7 @@ export default function ActiveListingCard({
                 <div className="flex justify-between items-start mb-3">
                     <div>
                         <p className="font-medium">{playerItem.item.name}</p>
-                        <p className="text-xs text-gray-500 capitalize">{playerItem.item.category}</p>
+                        <p className="text-xs text-gray-500 capitalize">{formatItemLabel(playerItem.item)}</p>
                         <p className="text-xs text-gray-400 mt-1">
                             {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
                         </p>
@@ -111,7 +113,7 @@ export default function ActiveListingCard({
                 <div className="flex justify-between items-start mb-3">
                     <div>
                         <p className="font-medium">{playerItem.item.name}</p>
-                        <p className="text-xs text-gray-500 capitalize">{playerItem.item.category}</p>
+                        <p className="text-xs text-gray-500 capitalize">{formatItemLabel(playerItem.item)}</p>
                         <p className="text-xs text-gray-400 mt-1">
                             {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
                         </p>

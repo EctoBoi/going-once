@@ -21,8 +21,13 @@ async function main() {
     for (const item of ITEM_TEMPLATES) {
         await prisma.item.upsert({
             where: { name: item.name },
-            update: { internalValue: item.internalValue, category: item.category },
-            create: item,
+            update: { internalValue: item.internalValue, category: item.category, description: item.description },
+            create: {
+                name: item.name,
+                category: item.category,
+                internalValue: item.internalValue,
+                description: item.description,
+            },
         });
     }
     console.log(`Seeded ${ITEM_TEMPLATES.length} items`);

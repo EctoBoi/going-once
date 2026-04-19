@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { formatItemLabel } from "@/lib/game/formatItemLabel";
 
 type InventoryItem = {
     id: string;
     acquiredFor: number;
-    item: { name: string; category: string };
+    item: { name: string; description?: string | null; category: string };
 };
 
 export default function InventoryModal({
@@ -66,7 +67,7 @@ export default function InventoryModal({
                             <div key={item.id} className="border border-gray-700 rounded-lg p-3 flex justify-between items-center gap-2 bg-gray-800">
                                 <div className="min-w-0">
                                     <p className="font-medium text-sm truncate">{item.item.name}</p>
-                                    <p className="text-xs text-gray-400 capitalize">{item.item.category}</p>
+                                    <p className="text-xs text-gray-400 capitalize">{formatItemLabel(item.item)}</p>
                                     <p className="text-xs text-gray-500 mt-0.5">
                                         {item.acquiredFor === 0 ? "Found in trash" : `Paid $${item.acquiredFor.toFixed(2)}`}
                                     </p>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatItemLabel } from "@/lib/game/formatItemLabel";
 
 type Auction = {
     id: string;
@@ -18,6 +19,7 @@ type Auction = {
     item: {
         id: string;
         name: string;
+        description?: string | null;
         category: string;
     };
 };
@@ -79,7 +81,7 @@ export default function AuctionCard({
             )}
             <div className="mb-1 pr-20">
                 <h2 className="font-semibold">{auction.item.name}</h2>
-                <span className="text-xs text-gray-500 capitalize">{auction.item.category}</span>
+                <span className="text-xs text-gray-500 capitalize">{formatItemLabel(auction.item)}</span>
             </div>
             <p className="text-xs text-gray-400 mb-2">
                 Hosted by <span className={auction.hostIsNPC ? "text-yellow-400" : "text-gray-300"}>{hostLabel}</span>

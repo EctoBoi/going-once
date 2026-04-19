@@ -23,6 +23,7 @@ type Auction = {
     item: {
         id: string;
         name: string;
+        description?: string | null;
         category: string;
     };
 };

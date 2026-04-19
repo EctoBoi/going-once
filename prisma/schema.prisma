@@ -23,6 +23,7 @@ enum BidReservationStatus {
 model Item {
   id            String       @id @default(cuid())
   name          String       @unique
+  description   String?
   category      String
   internalValue Float
   auctions      Auction[]
