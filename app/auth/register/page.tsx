@@ -24,7 +24,12 @@ export default function RegisterPage() {
         }
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) {
-            setError(error.message);
+            // Soften overly verbose or noisy password errors from Supabase
+            let msg = error.message || "An error occurred";
+            if (/Password should contain/i.test(msg)) {
+                msg = "Password must include at least one lowercase letter, one uppercase letter, one number, and one symbol.";
+            }
+            setError(msg);
             setLoading(false);
             return;
         }

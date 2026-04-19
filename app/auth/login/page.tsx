@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -10,7 +9,6 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
     const supabase = createClient();
 
     async function handleLogin() {
@@ -36,6 +34,11 @@ export default function LoginPage() {
                 <button onClick={handleLogin} disabled={loading} className="bg-black text-white p-2 rounded">
                     {loading ? "Logging in..." : "Log in"}
                 </button>
+                <p className="text-sm text-center">
+                    <Link href="/auth/reset" className="underline">
+                        Forgot password?
+                    </Link>
+                </p>
                 <p className="text-sm text-center">
                     No account?{" "}
                     <Link href="/auth/register" className="underline">
