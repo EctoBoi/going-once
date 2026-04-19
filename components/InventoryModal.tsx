@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import ItemArtwork from "@/components/ItemArtwork";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
 import { formatMoney } from "@/lib/game/priceUtils";
 
@@ -65,13 +66,16 @@ export default function InventoryModal({
                         </p>
                     ) : (
                         inventory.map((item) => (
-                            <div key={item.id} className="border border-gray-700 rounded-lg p-3 flex justify-between items-center gap-2 bg-gray-800">
-                                <div className="min-w-0">
-                                    <p className="font-medium text-sm truncate">{item.item.name}</p>
-                                    <p className="text-xs text-gray-400 capitalize">{formatItemLabel(item.item)}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">
-                                        {item.acquiredFor === 0 ? "Found in trash" : `Paid $${formatMoney(item.acquiredFor)}`}
-                                    </p>
+                            <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-stone-700 bg-stone-800/90 p-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <ItemArtwork itemName={item.item.name} size={68} />
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-stone-50">{item.item.name}</p>
+                                        <p className="text-xs text-stone-400 capitalize">{formatItemLabel(item.item)}</p>
+                                        <p className="mt-0.5 text-xs text-stone-500">
+                                            {item.acquiredFor === 0 ? "Found in trash" : `Paid $${formatMoney(item.acquiredFor)}`}
+                                        </p>
+                                    </div>
                                 </div>
                                 <button
                                     type="button"
@@ -79,7 +83,7 @@ export default function InventoryModal({
                                         onSell({ id: item.id, acquiredFor: item.acquiredFor, itemName: item.item.name });
                                         onClose();
                                     }}
-                                    className="text-xs border border-gray-600 px-3 py-1.5 rounded hover:bg-gray-600 shrink-0 bg-gray-700 transition-colors"
+                                    className="shrink-0 rounded border border-stone-600 bg-stone-700 px-3 py-1.5 text-xs transition-colors hover:bg-stone-600"
                                 >
                                     List
                                 </button>

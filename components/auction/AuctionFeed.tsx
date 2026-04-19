@@ -42,6 +42,7 @@ export default function AuctionFeed({
 }) {
     const [auctions, setAuctions] = useState(initialAuctions);
     const [refreshing, setRefreshing] = useState(false);
+    const [hideOwnListings, setHideOwnListings] = useState(false);
     // Track auctions the player previously led (to detect outbid events)
     const playerLedRef = useRef<Set<string>>(new Set(initialAuctions.filter((a) => a.leadingPlayerId === currentPlayerId).map((a) => a.id)));
 
@@ -56,6 +57,24 @@ export default function AuctionFeed({
             }
         }
     }, [currentPlayerId]);
+
+    // Persist user's preference for hiding their own listings
+    useEffect(() => {
+        try {
+            const v = localStorage.getItem("hideOwnListings");
+            if (v === "1") setHideOwnListings(true);
+        } catch (e) {
+            console.error("Failed to load hideOwnListings preference", e);
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem("hideOwnListings", hideOwnListings ? "1" : "0");
+        } catch (e) {
+            console.error("Failed to persist hideOwnListings preference", e);
+        }
+    }, [hideOwnListings]);
 
     async function handleRefresh() {
         setRefreshing(true);
@@ -184,16 +203,26 @@ export default function AuctionFeed({
         onOpenAuction?.(auctionId);
     }
 
+    const displayedAuctions = auctions.filter((a) => {
+        if (!hideOwnListings || !currentPlayerId) return true;
+        return a.listedBy !== currentPlayerId;
+    });
+
     return (
         <div>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end items-center mb-4 space-x-3">
+                <label className="text-sm flex items-center space-x-2">
+                    <input type="checkbox" checked={hideOwnListings} onChange={(e) => setHideOwnListings(e.target.checked)} className="w-4 h-4" />
+                    <span className="select-none">Hide my listings</span>
+                </label>
                 <button onClick={handleRefresh} disabled={refreshing} className="text-sm border px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50">
                     {refreshing ? "Refreshing…" : "↻ Refresh"}
                 </button>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {auctions.length === 0 && <p className="text-gray-500">No active auctions. Check back soon.</p>}
-                {auctions.map((auction) => (
+                {displayedAuctions.length === 0 && <p className="text-gray-500">No active auctions. Check back soon.</p>}
+                {displayedAuctions.map((auction) => (
                     <AuctionCard
                         key={auction.id}
                         auction={auction}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import ItemArtwork from "@/components/ItemArtwork";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
 import { formatMoney } from "@/lib/game/priceUtils";
 
@@ -70,7 +71,7 @@ export default function AuctionCard({
     else if (isLeading) borderCls = "border-2 border-yellow-500";
     else if (outbid) borderCls = "border-2 border-red-500";
 
-    const cls = `${borderCls} rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer relative ${isOwn ? "bg-gray-900" : ""}`;
+    const cls = `${borderCls} group rounded-2xl p-4 hover:shadow-md transition-shadow cursor-pointer relative bg-stone-950/80 ${isOwn ? "bg-gray-900" : ""}`;
 
     const hostLabel = auction.hostName ?? (auction.hostIsNPC ? "NPC" : "Unknown");
 
@@ -80,31 +81,36 @@ export default function AuctionCard({
             {isLeading && !isOwn && (
                 <span className="absolute top-2 right-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Leading</span>
             )}
-            <div className="mb-1 pr-20">
-                <h2 className="font-semibold">{auction.item.name}</h2>
-                <span className="text-xs text-gray-500 capitalize">{formatItemLabel(auction.item)}</span>
+            <div className="mb-3 flex gap-4 pr-20">
+                <ItemArtwork itemName={auction.item.name} size={88} priority />
+                <div className="min-w-0 flex-1 pt-1">
+                    <div className="mb-1">
+                        <h2 className="font-semibold text-stone-50">{auction.item.name}</h2>
+                        <span className="text-xs text-stone-400 capitalize">{formatItemLabel(auction.item)}</span>
+                    </div>
+                    <p className="text-xs text-stone-400">
+                        Hosted by <span className={auction.hostIsNPC ? "text-yellow-400" : "text-stone-300"}>{hostLabel}</span>
+                        {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
+                    </p>
+                </div>
             </div>
-            <p className="text-xs text-gray-400 mb-2">
-                Hosted by <span className={auction.hostIsNPC ? "text-yellow-400" : "text-gray-300"}>{hostLabel}</span>
-                {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
-            </p>
             <div className="flex justify-between items-center mt-2">
                 <div>
-                    <p className="text-xs text-gray-500">Current bid</p>
-                    <p className="font-bold">${formatMoney(auction.currentBid)}</p>
+                    <p className="text-xs text-stone-500">Current bid</p>
+                    <p className="font-bold text-stone-100">${formatMoney(auction.currentBid)}</p>
                 </div>
                 {auction.buyNow != null && (
                     <div className="text-center">
-                        <p className="text-xs text-gray-500">Buy Now</p>
+                        <p className="text-xs text-stone-500">Buy Now</p>
                         <p className="font-semibold text-emerald-400">${formatMoney(auction.buyNow)}</p>
                     </div>
                 )}
                 <div className="text-center">
-                    <p className="text-xs text-gray-500">Bids</p>
-                    <p className="font-semibold">{auction.bidCount}</p>
+                    <p className="text-xs text-stone-500">Bids</p>
+                    <p className="font-semibold text-stone-100">{auction.bidCount}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-xs text-gray-500">Time left</p>
+                    <p className="text-xs text-stone-500">Time left</p>
                     <p className={`font-mono font-bold ${timeLeft === "Ended" ? "text-red-500" : ""}`}>{timeLeft}</p>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import ItemArtwork from "@/components/ItemArtwork";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import MarketEvaluator from "@/components/MarketEvaluator";
@@ -273,37 +274,41 @@ export default function AuctionDetail({
                 </Link>
             )}
 
-            <div className="mt-6 border rounded-lg p-6">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h1 className="text-2xl font-bold">{auction.item.name}</h1>
-                        <p className="text-sm text-gray-500 capitalize mt-1">{formatItemLabel(auction.item)}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                            Hosted by <span className={auction.hostIsNPC ? "text-yellow-400 font-medium" : "text-gray-300"}>{hostLabel}</span>
-                            {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
-                        </p>
+            <div className="mt-6 rounded-2xl border border-stone-700/80 bg-stone-950/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex gap-4">
+                        <ItemArtwork itemName={auction.item.name} size={128} priority className="rounded-3xl" />
+                        <div>
+                            <h1 className="text-2xl font-bold">{auction.item.name}</h1>
+                            <p className="mt-1 text-sm text-stone-400 capitalize">{formatItemLabel(auction.item)}</p>
+                            <p className="mt-3 text-sm leading-6 text-stone-300">{auction.item.description}</p>
+                            <p className="mt-3 text-xs text-stone-400">
+                                Hosted by <span className={auction.hostIsNPC ? "text-yellow-400 font-medium" : "text-stone-300"}>{hostLabel}</span>
+                                {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
+                            </p>
+                        </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-gray-500">Time left</p>
+                        <p className="text-xs text-stone-500">Time left</p>
                         <p className={`font-mono text-xl font-bold ${ended ? "text-red-500" : ""}`}>{timeLeft}</p>
                     </div>
                 </div>
 
-                <div className="mt-6 flex justify-between items-center flex-wrap gap-4">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
                     <div>
-                        <p className="text-xs text-gray-500">Current bid</p>
-                        <p className="text-3xl font-bold">${formatMoney(currentBid)}</p>
+                        <p className="text-xs text-stone-500">Current bid</p>
+                        <p className="text-3xl font-bold text-stone-50">${formatMoney(currentBid)}</p>
                         {isLeading && <p className="text-xs text-green-400 font-medium mt-0.5">You are leading!</p>}
                     </div>
                     {buyNow != null && (
                         <div className="text-center">
-                            <p className="text-xs text-gray-500">Buy Now price</p>
+                            <p className="text-xs text-stone-500">Buy Now price</p>
                             <p className="text-2xl font-bold text-emerald-400">${formatMoney(buyNow ?? 0)}</p>
                         </div>
                     )}
                     <div className="text-right">
-                        <p className="text-xs text-gray-500">Your wallet</p>
-                        <p className="text-xl font-semibold">${formatMoney(wallet)}</p>
+                        <p className="text-xs text-stone-500">Your wallet</p>
+                        <p className="text-xl font-semibold text-stone-100">${formatMoney(wallet)}</p>
                     </div>
                 </div>
 
@@ -315,12 +320,12 @@ export default function AuctionDetail({
                                 placeholder={`Min $${formatMoney(minNextBid)}`}
                                 value={bidAmount}
                                 onChange={(e) => setBidAmount(e.target.value)}
-                                className="border rounded p-2 flex-1"
+                                className="flex-1 rounded border border-stone-700 bg-stone-900 p-2"
                                 min={minNextBid}
                                 step={1}
                             />
                             {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
-                            <button onClick={handleBid} disabled={loading || isDiving} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
+                            <button onClick={handleBid} disabled={loading || isDiving} className="rounded bg-black px-6 py-2 text-white disabled:opacity-50">
                                 {loading ? "Bidding..." : "Bid"}
                             </button>
                         </div>
