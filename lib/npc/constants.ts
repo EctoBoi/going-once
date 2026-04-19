@@ -11,4 +11,4 @@ export const NPC_BASE_LOW_CHANCE = 0.02;
 export const NPC_MAX_AGGRESSION_BOOST = 0.01;
 
 /** Set ENABLE_NPC_BUY_NOW=false in env to disable the buy-now feature entirely */
-export const ENABLE_NPC_BUY_NOW = process.env.ENABLE_NPC_BUY_NOW !== "false";
+export const ENABLE_NPC_BUY_NOW = true;
