@@ -61,6 +61,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     { name: "Carousel Horse", description: "Retired Performer", category: "collectibles", internalValue: 83000 },
     { name: "Retro Diner Sign", description: "Neon Flicker", category: "collectibles", internalValue: 860000 },
     { name: "Porch Bell Tower", description: "Miniature", category: "collectibles", internalValue: 125000 },
+    { name: "Pool Table with Character", description: "Two Balls Missing", category: "collectibles", internalValue: 215000 },
 
     // Tools
     { name: "Rusty Hand Saw", description: "Adds Ambiance", category: "tools", internalValue: 10 },
@@ -131,7 +132,6 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     { name: "Two-Car Garage", description: "With Echoes", category: "property", internalValue: 700000 },
     { name: "Estate-Sized Shed", description: "Ambition Level: High", category: "property", internalValue: 245000 },
     { name: "Greenhouse", description: "Plant Residency Included", category: "property", internalValue: 175000 },
-    { name: "Pool Table with Character", description: "Two Balls Missing", category: "property", internalValue: 215000 },
     { name: "Secret Wine Cellar", description: "Mostly Juice", category: "property", internalValue: 240000 },
     { name: "Helipad", description: "Toy Sized", category: "property", internalValue: 2400 },
     { name: "Riverside Gazebo", description: "Romantic, Damp", category: "property", internalValue: 425000 },
