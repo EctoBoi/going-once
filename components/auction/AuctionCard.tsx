@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 type Auction = {
     id: string;
@@ -90,12 +91,12 @@ export default function AuctionCard({
             <div className="flex justify-between items-center mt-2">
                 <div>
                     <p className="text-xs text-gray-500">Current bid</p>
-                    <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
+                    <p className="font-bold">${formatMoney(auction.currentBid)}</p>
                 </div>
                 {auction.buyNow != null && (
                     <div className="text-center">
                         <p className="text-xs text-gray-500">Buy Now</p>
-                        <p className="font-semibold text-emerald-400">${auction.buyNow.toFixed(2)}</p>
+                        <p className="font-semibold text-emerald-400">${formatMoney(auction.buyNow)}</p>
                     </div>
                 )}
                 <div className="text-center">
@@ -116,7 +117,7 @@ export default function AuctionCard({
                     }}
                     className="mt-6 w-full text-sm bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded font-medium transition-colors"
                 >
-                    Buy Now — ${auction.buyNow.toFixed(2)}
+                    Buy Now — ${formatMoney(auction.buyNow)}
                 </button>
             )}
         </>

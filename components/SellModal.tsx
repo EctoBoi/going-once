@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SellForm from "@/components/SellForm";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 export default function SellModal({
     playerItemId,
@@ -49,7 +50,7 @@ export default function SellModal({
                 {itemName && (
                     <p className="text-sm text-gray-400 mb-3">
                         {itemName}
-                        {acquiredFor > 0 ? ` — paid $${acquiredFor.toFixed(2)}` : " — found in trash"}
+                        {acquiredFor > 0 ? ` — paid $${formatMoney(acquiredFor)}` : " — found in trash"}
                     </p>
                 )}
                 <SellForm

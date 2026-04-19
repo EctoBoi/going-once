@@ -2,8 +2,9 @@ import { AuctionStatus, BidReservationStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { NPC_PERSONAS } from "@/lib/game/npcPersonas";
+import { roundDownOnePlaceOver, formatMoney } from "@/lib/game/priceUtils";
 
-const TARGET_ACTIVE_SYSTEM_AUCTIONS = 9;
+const TARGET_ACTIVE_SYSTEM_AUCTIONS = 12;
 const STALE_RESOLVING_TIMEOUT_MS = 60_000;
 const OPEN_AUCTION_STATUSES: AuctionStatus[] = [AuctionStatus.active, AuctionStatus.resolving];
 
@@ -32,9 +33,10 @@ function randomNPCHost() {
 }
 
 function randomBuyNow(internalValue: number): number {
-    // [-5%, +20%] of internal value
+    // [-5%, +20%] of internal value, then round down to one place-over rule
     const factor = 0.95 + Math.random() * 0.25;
-    return Math.round(internalValue * factor * 100) / 100;
+    const raw = internalValue * factor;
+    return roundDownOnePlaceOver(raw);
 }
 
 type CreateListingInput = {
@@ -72,17 +74,13 @@ function isRetryableTransactionError(error: unknown) {
     // Some driver wrappers include the underlying message rather than a code.
     const errLike = error as { message?: unknown; cause?: { message?: unknown } } | undefined;
     const message =
-        errLike && typeof errLike.message === "string"
-            ? errLike.message
-            : errLike && errLike.message !== undefined
-            ? String(errLike.message)
-            : undefined;
+        errLike && typeof errLike.message === "string" ? errLike.message : errLike && errLike.message !== undefined ? String(errLike.message) : undefined;
     const causeMessage =
         errLike && errLike.cause && typeof errLike.cause.message === "string"
             ? errLike.cause.message
             : errLike && errLike.cause && errLike.cause.message !== undefined
-            ? String(errLike.cause.message)
-            : undefined;
+              ? String(errLike.cause.message)
+              : undefined;
     const errStr = (message ?? causeMessage ?? "").toLowerCase();
     if (errStr.includes("deadlock")) {
         return true;
@@ -126,7 +124,8 @@ function randomDuration() {
 
 function randomMinBid(internalValue: number) {
     const factor = 0.2 + Math.random() * 0.2;
-    return Math.round(internalValue * factor * 100) / 100;
+    const raw = internalValue * factor;
+    return roundDownOnePlaceOver(raw);
 }
 
 async function releaseReservation(
@@ -437,7 +436,7 @@ export async function placeBid(input: PlaceBidInput) {
             throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
         }
         if (input.amount <= auction.currentBid) {
-            throw new AuctionLifecycleError(`Bid must be higher than $${auction.currentBid.toFixed(2)}`, 400, "bid_too_low");
+            throw new AuctionLifecycleError(`Bid must be higher than $${formatMoney(auction.currentBid)}`, 400, "bid_too_low");
         }
         if (!input.isNPC && !input.playerId) {
             throw new AuctionLifecycleError("Player bids require a player id", 500, "missing_player_id");

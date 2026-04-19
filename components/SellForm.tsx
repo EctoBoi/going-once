@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { playerItemId: string; acquiredFor: number; onSuccess?: () => void }) {
-    const defaultMinBid = (acquiredFor + 1).toFixed(2);
-    const defaultBuyNow = (Math.round(acquiredFor * 2 * 100) / 100).toFixed(2);
+    const defaultMinBid = String(Math.round(acquiredFor + 1));
+    const defaultBuyNow = String(Math.round(acquiredFor * 2));
 
     const [minBid, setMinBid] = useState(defaultMinBid);
     const [buyNow, setBuyNow] = useState(defaultBuyNow);
@@ -76,7 +76,7 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
         <div className="flex flex-col gap-4">
             <div>
                 <label className="text-sm text-gray-400 block mb-1">Minimum bid ($)</label>
-                <input type="number" value={minBid} onChange={(e) => setMinBid(e.target.value)} className="border rounded p-2 w-full" min="0" step="0.01" />
+                <input type="number" value={minBid} onChange={(e) => setMinBid(e.target.value)} className="border rounded p-2 w-full" min="0" step="1" />
             </div>
 
             <div>
@@ -88,7 +88,7 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
                     placeholder="Leave blank to disable"
                     className="border rounded p-2 w-full"
                     min="0"
-                    step="0.01"
+                    step="1"
                 />
             </div>
 

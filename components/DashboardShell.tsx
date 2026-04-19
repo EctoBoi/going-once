@@ -53,6 +53,7 @@ type Props = {
 };
 
 const supabase = createClient();
+import { formatMoney } from "@/lib/game/priceUtils";
 
 export default function DashboardShell({
     wallet: initialWallet,
@@ -343,14 +344,14 @@ export default function DashboardShell({
 
                     if (affectsOwner && recordAuctionToast(`${updated.id}:sold`)) {
                         if (hadAnyBids) {
-                            toast.success(`💰 Your listing for a ${resolvedName} sold for $${finalBid.toFixed(2)}!`);
+                            toast.success(`💰 Your listing for a ${resolvedName} sold for $${formatMoney(finalBid)}!`);
                         } else {
                             toast(`Your listing for a ${resolvedName} ended with no winner.`, { icon: "ℹ️" });
                         }
                     }
 
                     if (affectsWinner && recordAuctionToast(`${updated.id}:won`)) {
-                        toast.success(`🎉 You won a ${resolvedName} for $${finalBid.toFixed(2)}!`);
+                        toast.success(`🎉 You won a ${resolvedName} for $${formatMoney(finalBid)}!`);
                     }
 
                     let refreshed = false;
@@ -475,7 +476,7 @@ export default function DashboardShell({
                 {/* Wallet */}
                 <div className="px-4 py-3 border-b border-gray-800">
                     <p className="text-xs text-gray-300">Wallet</p>
-                    <p className="font-bold text-lg text-white">${wallet.toFixed(2)}</p>
+                    <p className="font-bold text-lg text-white">${formatMoney(wallet)}</p>
                 </div>
 
                 <div className="flex flex-col gap-4 p-4">

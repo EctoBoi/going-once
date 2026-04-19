@@ -33,7 +33,7 @@ export async function GET() {
     // Dive complete — award a random item to the player
     const randomItem = await prisma.item.findFirst({
         orderBy: { internalValue: "asc" },
-        skip: Math.floor(Math.random() * 5), // pick from cheapest 5 items
+        skip: Math.floor(Math.random() * 8), // pick from cheapest 8 items
     });
 
     let awardedItem: { name: string } | null = null;

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/auctionLifecycle";
+import { roundDownOnePlaceOver } from "@/lib/game/priceUtils";
 import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
 
 // Probability function
@@ -61,8 +62,8 @@ function calculateNPCBidAmount(currentBid: number, internalValue: number, aggres
     const baseIncrement = 1 + Math.random() * 4;
     // Aggressive NPCs occasionally bid well above value
     const aggressionMultiplier = Math.random() < aggressionSeed ? 1 + Math.random() * 0.5 : 1;
-    const amount = (currentBid + baseIncrement) * aggressionMultiplier;
-    return Math.round(amount * 100) / 100;
+    const raw = (currentBid + baseIncrement) * aggressionMultiplier;
+    return roundDownOnePlaceOver(raw);
 }
 
 export async function evaluateNPCBids() {

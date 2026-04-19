@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import MarketEvaluator from "@/components/MarketEvaluator";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 type Bid = {
     id: string;
@@ -178,7 +179,7 @@ export default function AuctionDetail({
         const amount = parseFloat(bidAmount);
 
         if (isNaN(amount) || amount < minNextBid) {
-            setError(`Minimum bid is $${minNextBid.toFixed(2)}`);
+            setError(`Minimum bid is $${formatMoney(minNextBid)}`);
             return;
         }
         if (amount > wallet) {
@@ -217,7 +218,7 @@ export default function AuctionDetail({
             ...prev.filter((b) => !b.id.startsWith("optimistic-")),
         ]);
         setBidAmount("");
-        toast.success(`Bid placed: $${data.currentBid.toFixed(2)}`);
+        toast.success(`Bid placed: $${formatMoney(data.currentBid)}`);
         setLoading(false);
     }
 
@@ -235,7 +236,7 @@ export default function AuctionDetail({
 
         setWallet(data.wallet);
         onWalletUpdate?.(data.wallet);
-        toast.success(`🎉 You bought ${auction.item.name} for $${buyNow?.toFixed(2)}!`);
+        toast.success(`🎉 You bought ${auction.item.name} for $${formatMoney(buyNow ?? 0)}!`);
         setBuyNowLoading(false);
         onClose?.();
         router.refresh();
@@ -291,18 +292,18 @@ export default function AuctionDetail({
                 <div className="mt-6 flex justify-between items-center flex-wrap gap-4">
                     <div>
                         <p className="text-xs text-gray-500">Current bid</p>
-                        <p className="text-3xl font-bold">${currentBid.toFixed(2)}</p>
+                        <p className="text-3xl font-bold">${formatMoney(currentBid)}</p>
                         {isLeading && <p className="text-xs text-green-400 font-medium mt-0.5">You are leading!</p>}
                     </div>
                     {buyNow != null && (
                         <div className="text-center">
                             <p className="text-xs text-gray-500">Buy Now price</p>
-                            <p className="text-2xl font-bold text-emerald-400">${buyNow.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-emerald-400">${formatMoney(buyNow ?? 0)}</p>
                         </div>
                     )}
                     <div className="text-right">
                         <p className="text-xs text-gray-500">Your wallet</p>
-                        <p className="text-xl font-semibold">${wallet.toFixed(2)}</p>
+                        <p className="text-xl font-semibold">${formatMoney(wallet)}</p>
                     </div>
                 </div>
 
@@ -311,12 +312,12 @@ export default function AuctionDetail({
                         <div className="flex gap-2">
                             <input
                                 type="number"
-                                placeholder={`Min $${minNextBid.toFixed(2)}`}
+                                placeholder={`Min $${formatMoney(minNextBid)}`}
                                 value={bidAmount}
                                 onChange={(e) => setBidAmount(e.target.value)}
                                 className="border rounded p-2 flex-1"
                                 min={minNextBid}
-                                step="0.01"
+                                step={1}
                             />
                             {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
                             <button onClick={handleBid} disabled={loading || isDiving} className="bg-black text-white px-6 py-2 rounded disabled:opacity-50">
@@ -330,7 +331,7 @@ export default function AuctionDetail({
                                 disabled={buyNowLoading || isDiving || wallet < buyNow}
                                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded font-semibold disabled:opacity-50 transition-colors"
                             >
-                                {buyNowLoading ? "Processing..." : `Buy Now — $${buyNow.toFixed(2)}`}
+                                {buyNowLoading ? "Processing..." : `Buy Now — $${formatMoney(buyNow ?? 0)}`}
                             </button>
                         )}
                     </div>
@@ -356,7 +357,7 @@ export default function AuctionDetail({
                                         {isYou && <span className="ml-1 text-blue-600 font-semibold">(You)</span>}
                                         {bid.isNPC && <span className="ml-1 text-yellow-500 text-xs">[NPC]</span>}
                                     </span>
-                                    <span>${bid.amount.toFixed(2)}</span>
+                                    <span>${formatMoney(bid.amount)}</span>
                                 </div>
                             );
                         })}

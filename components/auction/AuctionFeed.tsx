@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import AuctionCard from "./AuctionCard";
 import MarketEvaluator from "@/components/MarketEvaluator";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 type Auction = {
     id: string;
@@ -124,7 +125,7 @@ export default function AuctionFeed({
                                     recentOutbidToastTimes.set(a.id, now);
                                     const name = a.item?.name ?? "item";
                                     const newBidAmount = hasCurrentBid ? (updated.currentBid as number) : a.currentBid;
-                                    pendingToasts.push(() => toast.error(`You were outbid on a ${name}! New bid: $${newBidAmount.toFixed(2)}`));
+                                    pendingToasts.push(() => toast.error(`You were outbid on a ${name}! New bid: $${formatMoney(newBidAmount)}`));
                                 }
                             }
 

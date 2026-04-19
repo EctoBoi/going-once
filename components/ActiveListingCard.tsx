@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 type Bid = {
     id: string;
@@ -74,7 +75,7 @@ export default function ActiveListingCard({
                         <p className="font-medium">{playerItem.item.name}</p>
                         <p className="text-xs text-gray-500 capitalize">{formatItemLabel(playerItem.item)}</p>
                         <p className="text-xs text-gray-400 mt-1">
-                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
+                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${formatMoney(playerItem.acquiredFor)}`}
                         </p>
                     </div>
                     <div className="text-right">
@@ -86,7 +87,7 @@ export default function ActiveListingCard({
                 <div className="flex justify-between mb-3">
                     <div>
                         <p className="text-xs text-gray-500">Current bid</p>
-                        <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
+                        <p className="font-bold">${formatMoney(auction.currentBid)}</p>
                     </div>
                 </div>
 
@@ -97,7 +98,7 @@ export default function ActiveListingCard({
                             {auction.bids.map((bid) => (
                                 <div key={bid.id} className="flex justify-between text-xs">
                                     <span>{bid.bidderName}</span>
-                                    <span>${bid.amount.toFixed(2)}</span>
+                                    <span>${formatMoney(bid.amount)}</span>
                                 </div>
                             ))}
                         </div>
@@ -115,7 +116,7 @@ export default function ActiveListingCard({
                         <p className="font-medium">{playerItem.item.name}</p>
                         <p className="text-xs text-gray-500 capitalize">{formatItemLabel(playerItem.item)}</p>
                         <p className="text-xs text-gray-400 mt-1">
-                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${playerItem.acquiredFor.toFixed(2)}`}
+                            {playerItem.acquiredFor === 0 ? "Found in trash" : `Paid $${formatMoney(playerItem.acquiredFor)}`}
                         </p>
                     </div>
                     <div className="text-right">
@@ -127,7 +128,7 @@ export default function ActiveListingCard({
                 <div className="flex justify-between mb-3">
                     <div>
                         <p className="text-xs text-gray-500">Current bid</p>
-                        <p className="font-bold">${auction.currentBid.toFixed(2)}</p>
+                        <p className="font-bold">${formatMoney(auction.currentBid)}</p>
                     </div>
                 </div>
 
@@ -138,7 +139,7 @@ export default function ActiveListingCard({
                             {auction.bids.map((bid) => (
                                 <div key={bid.id} className="flex justify-between text-xs">
                                     <span>{bid.bidderName}</span>
-                                    <span>${bid.amount.toFixed(2)}</span>
+                                    <span>${formatMoney(bid.amount)}</span>
                                 </div>
                             ))}
                         </div>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import SellForm from "@/components/SellForm";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
+import { formatMoney } from "@/lib/game/priceUtils";
 
 export default async function SellPage({ params }: { params: Promise<{ playerItemId: string }> }) {
     const { playerItemId } = await params;
@@ -27,7 +28,7 @@ export default async function SellPage({ params }: { params: Promise<{ playerIte
                 <p className="font-semibold text-lg">{playerItem.item.name}</p>
                 <p className="text-sm text-gray-500 capitalize mb-1">{formatItemLabel(playerItem.item)}</p>
                 <p className="text-sm text-gray-400 mb-6">
-                    {playerItem.acquiredFor === 0 ? "Found in trash" : `You paid $${playerItem.acquiredFor.toFixed(2)}`}
+                    {playerItem.acquiredFor === 0 ? "Found in trash" : `You paid $${formatMoney(playerItem.acquiredFor)}`}
                 </p>
                 <SellForm playerItemId={playerItem.id} acquiredFor={playerItem.acquiredFor} />
             </div>
