@@ -15,7 +15,7 @@ function getInitials(itemName: string) {
 
 export default function ItemArtwork({
     itemName,
-    size = 80,
+    size,
     className = "",
     imageClassName = "",
     priority = false,
@@ -31,10 +31,14 @@ export default function ItemArtwork({
     return (
         <div
             className={[
-                "relative shrink-0 overflow-hidden rounded-2xl border border-amber-200/20 bg-linear-to-br from-stone-950 via-stone-900 to-stone-800 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_14px_30px_rgba(0,0,0,0.35)]",
+                "relative overflow-hidden rounded-2xl border border-amber-200/20 bg-linear-to-br from-stone-950 via-stone-900 to-stone-800 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_14px_30px_rgba(0,0,0,0.35)]",
+                // keep shrink-0 when an explicit size is used so it doesn't collapse
+                size ? "shrink-0" : "",
                 className,
-            ].join(" ")}
-            style={{ width: size, height: size }}
+            ]
+                .filter(Boolean)
+                .join(" ")}
+            style={typeof size === "number" ? { width: size, height: size } : undefined}
         >
             <div className="pointer-events-none absolute inset-[3px] rounded-[calc(1rem-3px)] border border-white/8" />
             {failed ? (
@@ -46,7 +50,7 @@ export default function ItemArtwork({
                     src={getItemImageSrc(itemName)}
                     alt={itemName}
                     fill
-                    sizes={`${size}px`}
+                    {...(typeof size === "number" ? { sizes: `${size}px` } : {})}
                     priority={priority}
                     className={["object-cover transition-transform duration-300 group-hover:scale-[1.03]", imageClassName].join(" ")}
                     onError={() => setFailed(true)}

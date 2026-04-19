@@ -67,6 +67,7 @@ export default function DashboardShell({
     const [selectedAuctionId, setSelectedAuctionId] = useState<string | null>(null);
     const [sellItem, setSellItem] = useState<{ id: string; acquiredFor: number; itemName: string } | null>(null);
     const [inventoryOpen, setInventoryOpen] = useState(false);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [wallet, setWallet] = useState(initialWallet);
     const [inventory, setInventory] = useState<InventoryItem[]>(initialInventory);
     const [activeListings, setActiveListings] = useState<InventoryItem[]>(initialActiveListings);
@@ -471,8 +472,8 @@ export default function DashboardShell({
         <div className="flex-1 flex overflow-hidden">
             <MarketEvaluator />
 
-            {/* Left column — Player */}
-            <aside className="w-72 shrink-0 border-r flex flex-col overflow-y-auto bg-gray-900 text-gray-100">
+            {/* Left column — Player (desktop) */}
+            <aside className="hidden md:flex w-72 shrink-0 border-r flex flex-col overflow-y-auto bg-gray-900 text-gray-100">
                 {/* Wallet */}
                 <div className="px-4 py-3 border-b border-gray-800">
                     <p className="text-xs text-gray-300">Wallet</p>
@@ -521,9 +522,76 @@ export default function DashboardShell({
                 </div>
             </aside>
 
+            {/* Mobile sidebar (slide-in) */}
+            {mobileSidebarOpen && (
+                <>
+                    <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setMobileSidebarOpen(false)} />
+                    <aside className="fixed inset-y-0 left-0 z-50 w-72 border-r flex flex-col overflow-y-auto bg-gray-900 text-gray-100">
+                        <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+                            <div>
+                                <p className="text-xs text-gray-300">Wallet</p>
+                                <p className="font-bold text-lg text-white">${formatMoney(wallet)}</p>
+                            </div>
+                            <button className="text-gray-300 p-1" onClick={() => setMobileSidebarOpen(false)} aria-label="Close sidebar">
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-4 p-4">
+                            <section>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setInventoryOpen(true);
+                                        setMobileSidebarOpen(false);
+                                    }}
+                                    className="w-full text-lg font-semibold border border-gray-700 px-3 py-4 rounded-lg hover:bg-gray-800 transition-colors text-gray-200 flex items-center justify-between"
+                                >
+                                    <span>🎒 Inventory</span>
+                                    <span className="text-xs text-gray-400 font-normal">
+                                        {inventory.length} item{inventory.length !== 1 ? "s" : ""}
+                                    </span>
+                                </button>
+                            </section>
+
+                            <section>
+                                <DumpsterDive initialDiveFinishesAt={diveFinishesAt} onDiveComplete={refreshInventory} />
+                            </section>
+
+                            {activeListings.length > 0 && (
+                                <section>
+                                    <h2 className="font-semibold text-xs uppercase tracking-wide text-gray-300 mb-2">Your Listings</h2>
+                                    <div className="flex flex-col gap-2">
+                                        {activeListings.map((playerItem) => {
+                                            const auction = listingAuctions.find((a) => a.playerItemId === playerItem.id);
+                                            return (
+                                                <ActiveListingCard
+                                                    key={playerItem.id}
+                                                    playerItem={playerItem}
+                                                    auction={auction ?? null}
+                                                    onOpen={(id) => {
+                                                        setSelectedAuctionId(id);
+                                                        setMobileSidebarOpen(false);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
+                        </div>
+                    </aside>
+                </>
+            )}
+
             {/* Right column — Auctions */}
             <main className="flex-1 overflow-y-auto p-4">
-                <AuctionFeed initialAuctions={initialAuctions} currentPlayerId={currentPlayerId} onOpenAuction={(id) => setSelectedAuctionId(id)} />
+                <AuctionFeed
+                    initialAuctions={initialAuctions}
+                    currentPlayerId={currentPlayerId}
+                    onOpenAuction={(id) => setSelectedAuctionId(id)}
+                    onToggleSidebar={() => setMobileSidebarOpen((s) => !s)}
+                />
             </main>
 
             {/* Auction detail modal */}

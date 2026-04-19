@@ -263,7 +263,7 @@ export default function AuctionDetail({
     const hostLabel = auction.hostName ?? (auction.hostIsNPC ? "NPC" : "Unknown");
 
     return (
-        <main className={onClose ? "p-6" : "min-h-screen p-8 max-w-2xl mx-auto"}>
+        <main className={onClose ? "p-4 sm:p-6" : "min-h-screen p-4 sm:p-8 max-w-2xl mx-auto"}>
             {onClose ? (
                 <button onClick={onClose} className="text-sm text-gray-500 hover:underline">
                     ← Back to auctions
@@ -274,10 +274,10 @@ export default function AuctionDetail({
                 </Link>
             )}
 
-            <div className="mt-6 rounded-2xl border border-stone-700/80 bg-stone-950/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            <div className="mt-6 rounded-2xl border border-stone-700/80 bg-stone-950/80 p-4 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex gap-4">
-                        <ItemArtwork itemName={auction.item.name} size={128} priority className="rounded-3xl" />
+                        <ItemArtwork itemName={auction.item.name} priority className="rounded-3xl w-20 h-20 sm:w-32 sm:h-32" />
                         <div>
                             <h1 className="text-2xl font-bold">{auction.item.name}</h1>
                             <p className="mt-1 text-sm text-stone-400 capitalize">{formatItemLabel(auction.item)}</p>
@@ -320,7 +320,7 @@ export default function AuctionDetail({
                                 placeholder={`Min $${formatMoney(minNextBid)}`}
                                 value={bidAmount}
                                 onChange={(e) => setBidAmount(e.target.value)}
-                                className="flex-1 rounded border border-stone-700 bg-stone-900 p-2"
+                                className="min-w-0 w-24 sm:flex-1 rounded border border-stone-700 bg-stone-900 p-1 sm:p-2 text-sm sm:text-base"
                                 min={minNextBid}
                                 step={1}
                             />

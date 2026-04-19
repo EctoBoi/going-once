@@ -35,10 +35,12 @@ export default function AuctionFeed({
     initialAuctions,
     currentPlayerId,
     onOpenAuction,
+    onToggleSidebar,
 }: {
     initialAuctions: Auction[];
     currentPlayerId?: string;
     onOpenAuction?: (id: string) => void;
+    onToggleSidebar?: () => void;
 }) {
     const [auctions, setAuctions] = useState(initialAuctions);
     const [refreshing, setRefreshing] = useState(false);
@@ -210,14 +212,25 @@ export default function AuctionFeed({
 
     return (
         <div>
-            <div className="flex justify-end items-center mb-4 space-x-3">
-                <label className="text-sm flex items-center space-x-2">
-                    <input type="checkbox" checked={hideOwnListings} onChange={(e) => setHideOwnListings(e.target.checked)} className="w-4 h-4" />
-                    <span className="select-none">Hide my listings</span>
-                </label>
-                <button onClick={handleRefresh} disabled={refreshing} className="text-sm border px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50">
-                    {refreshing ? "Refreshing…" : "↻ Refresh"}
+            <div className="flex items-center mb-4">
+                <button
+                    type="button"
+                    onClick={() => onToggleSidebar?.()}
+                    className="md:hidden mr-3 bg-gray-800 text-white rounded p-2"
+                    aria-label="Open sidebar"
+                >
+                    ☰
                 </button>
+
+                <div className="ml-auto flex items-center space-x-3">
+                    <label className="text-sm flex items-center space-x-2">
+                        <input type="checkbox" checked={hideOwnListings} onChange={(e) => setHideOwnListings(e.target.checked)} className="w-4 h-4" />
+                        <span className="select-none">Hide my listings</span>
+                    </label>
+                    <button onClick={handleRefresh} disabled={refreshing} className="text-sm border px-3 py-1.5 rounded hover:bg-gray-50 disabled:opacity-50">
+                        {refreshing ? "Refreshing…" : "↻ Refresh"}
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
