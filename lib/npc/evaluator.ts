@@ -5,7 +5,7 @@ import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AG
 
 const NPC_EVALUATION_KEY = "npc_evaluation";
 const DEFAULT_NPC_EVALUATION_LEASE_MS = 12_000;
-const NPC_SCHEDULED_BID_ATTEMPTS = 3;
+const NPC_SCHEDULED_BID_ATTEMPTS = 1;
 
 function isStatementTimeoutError(error: unknown) {
     const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
