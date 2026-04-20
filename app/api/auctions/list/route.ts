@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
-import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -10,11 +9,13 @@ export async function GET() {
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-    // Fire reconciliation in background — don't block the list response
-    reconcileAuctionLifecycle().catch(() => {});
+    const now = new Date();
 
     const auctions = await prisma.auction.findMany({
-        where: { status: "active" },
+        where: {
+            status: "active",
+            endsAt: { gt: now },
+        },
         include: {
             item: true,
             _count: { select: { bids: true } },

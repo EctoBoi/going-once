@@ -1,4 +1,4 @@
-import { AuctionLifecycleError, createListing, reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
+import { AuctionLifecycleError, createListing } from "@/lib/game/auctionLifecycle";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -14,7 +14,6 @@ export async function POST(request: Request) {
 
         const clampedDuration = Math.min(10, Math.max(1, durationMinutes ?? 2));
 
-        await reconcileAuctionLifecycle();
         await createListing({
             playerId: user.id,
             playerItemId,

@@ -1,4 +1,4 @@
-import { AuctionLifecycleError, placeBid, reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
+import { AuctionLifecycleError, placeBid, reconcileAuctionById } from "@/lib/game/auctionLifecycle";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         if (player.isDiving) return NextResponse.json({ ok: false, error: "Cannot bid while diving" }, { status: 403 });
         const bidderName = player?.username ?? `Player-${user.id.slice(0, 6)}`;
 
-        await reconcileAuctionLifecycle();
+        await reconcileAuctionById(id);
         const result = await placeBid({
             auctionId: id,
             bidderName,

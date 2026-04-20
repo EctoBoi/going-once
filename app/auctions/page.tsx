@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 import AuctionFeed from "@/components/auction/AuctionFeed";
 import Link from "next/link";
 
@@ -12,10 +11,13 @@ export default async function AuctionsPage() {
     } = await supabase.auth.getUser();
     if (!user) redirect("/auth/login");
 
-    await reconcileAuctionLifecycle();
+    const now = new Date();
 
     const auctions = await prisma.auction.findMany({
-        where: { status: "active" },
+        where: {
+            status: "active",
+            endsAt: { gt: now },
+        },
         include: {
             item: true,
             _count: { select: { bids: true } },

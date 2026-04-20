@@ -9,10 +9,20 @@ export async function GET() {
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
+    const now = new Date();
+
     const listingAuctions = await prisma.auction.findMany({
         where: {
             listedBy: user.id,
-            status: { in: ["active", "resolving"] },
+            OR: [
+                {
+                    status: "active",
+                    endsAt: { gt: now },
+                },
+                {
+                    status: "resolving",
+                },
+            ],
         },
         include: { bids: { orderBy: { placedAt: "desc" }, take: 5 } },
     });

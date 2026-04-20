@@ -24,7 +24,7 @@ type AuctionData = {
     hostIsNPC?: boolean;
     leadingPlayerId?: string | null;
     item: { name: string; category: string };
-    bids: Bid[];
+    bids?: Bid[];
 };
 
 type ModalPayload = {

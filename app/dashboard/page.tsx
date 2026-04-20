@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
 import DashboardShell from "@/components/DashboardShell";
 
 export default async function DashboardPage() {
@@ -12,9 +11,6 @@ export default async function DashboardPage() {
     } = await supabase.auth.getUser();
     if (!user) redirect("/auth/login");
 
-    // Fire reconciliation in the background — don't block page render
-    reconcileAuctionLifecycle().catch(() => {});
-
     return (
         <Suspense fallback={<DashboardLoadingShell />}>
             <DashboardData userId={user.id} />
@@ -23,6 +19,8 @@ export default async function DashboardPage() {
 }
 
 async function DashboardData({ userId }: { userId: string }) {
+    const now = new Date();
+
     const [player, inventory, activeListings, activeAuctions] = await Promise.all([
         prisma.player.findUnique({ where: { id: userId } }),
         prisma.playerItem.findMany({
@@ -34,7 +32,10 @@ async function DashboardData({ userId }: { userId: string }) {
             include: { item: true },
         }),
         prisma.auction.findMany({
-            where: { status: "active" },
+            where: {
+                status: "active",
+                endsAt: { gt: now },
+            },
             include: {
                 item: true,
                 _count: { select: { bids: true } },
@@ -47,7 +48,15 @@ async function DashboardData({ userId }: { userId: string }) {
         where: {
             playerItemId: { in: activeListings.map((l) => l.id) },
             listedBy: userId,
-            status: { in: ["active", "resolving"] },
+            OR: [
+                {
+                    status: "active",
+                    endsAt: { gt: now },
+                },
+                {
+                    status: "resolving",
+                },
+            ],
         },
         include: {
             bids: { orderBy: { placedAt: "desc" }, take: 5 },

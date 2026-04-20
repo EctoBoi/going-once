@@ -132,7 +132,7 @@ function randomDuration() {
 }
 
 function randomMinBid(internalValue: number) {
-    const factor = 0.2 + Math.random() * 0.2;
+    const factor = 0.2 + Math.random() * 0.4;
     const raw = internalValue * factor;
     return roundDownOnePlaceOver(raw);
 }
@@ -421,6 +421,46 @@ export async function reconcileAuctionLifecycle(now = new Date()) {
     }
 
     await replenishSystemAuctions(now);
+}
+
+export async function reconcileAuctionById(auctionId: string, now = new Date()) {
+    const staleThreshold = new Date(now.getTime() - STALE_RESOLVING_TIMEOUT_MS);
+
+    await prisma.auction.updateMany({
+        where: {
+            id: auctionId,
+            status: AuctionStatus.resolving,
+            resolvingAt: { lt: staleThreshold },
+            resolvedAt: null,
+        },
+        data: {
+            status: AuctionStatus.active,
+            resolvingAt: null,
+        },
+    });
+
+    const auction = await prisma.auction.findUnique({
+        where: { id: auctionId },
+        select: {
+            status: true,
+            endsAt: true,
+        },
+    });
+
+    if (!auction) {
+        return false;
+    }
+
+    if (auction.status === AuctionStatus.active && auction.endsAt <= now) {
+        return claimAndResolveAuction(auctionId, now);
+    }
+
+    if (auction.status === AuctionStatus.resolving) {
+        await settleClaimedAuction(auctionId, now);
+        return true;
+    }
+
+    return false;
 }
 
 export async function placeBid(input: PlaceBidInput) {

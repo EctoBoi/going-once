@@ -16,6 +16,7 @@ type Bid = {
 type Auction = {
     id: string;
     currentBid: number;
+    buyNow?: number | null;
     endsAt: string;
     bids: Bid[];
 };
@@ -89,6 +90,12 @@ export default function ActiveListingCard({
                         <p className="text-xs text-gray-500">Current bid</p>
                         <p className="font-bold">${formatMoney(auction.currentBid)}</p>
                     </div>
+                    {auction.buyNow != null && (
+                        <div>
+                            <p className="text-xs text-gray-500">Buy now</p>
+                            <p className="font-semibold text-emerald-400">${formatMoney(auction.buyNow)}</p>
+                        </div>
+                    )}
                 </div>
 
                 {auction.bids.length > 0 && (
@@ -130,6 +137,12 @@ export default function ActiveListingCard({
                         <p className="text-xs text-gray-500">Current bid</p>
                         <p className="font-bold">${formatMoney(auction.currentBid)}</p>
                     </div>
+                    {auction.buyNow != null && (
+                        <div>
+                            <p className="text-xs text-gray-500">Buy now</p>
+                            <p className="font-semibold text-emerald-400">${formatMoney(auction.buyNow)}</p>
+                        </div>
+                    )}
                 </div>
 
                 {auction.bids.length > 0 && (

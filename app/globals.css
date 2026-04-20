@@ -24,3 +24,22 @@ body {
     color: var(--foreground);
     font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Allow scrolling while hiding scrollbar visuals to prevent layout shifts */
+.no-visible-scrollbar {
+    overflow-y: auto;
+    /* Reserve space for the scrollbar to avoid window/content shifting */
+    scrollbar-gutter: stable;
+}
+
+/* Hide scrollbar visuals for WebKit-based browsers */
+.no-visible-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* Hide scrollbar for Firefox/IE while keeping gutter reserved */
+.no-visible-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}

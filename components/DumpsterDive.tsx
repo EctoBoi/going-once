@@ -47,6 +47,27 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
                     onDiveComplete?.();
                 } else if (!data.isDiving) {
                     setState({ status: "idle" });
+                } else {
+                    // still diving on server — update diveFinishesAt so effect restarts
+                    // prefer server-provided timestamp when available
+                    const newFinish = data.diveFinishesAt ?? state.diveFinishesAt;
+                    if (newFinish && newFinish !== state.diveFinishesAt) {
+                        setState({ status: "diving", diveFinishesAt: newFinish });
+                    } else {
+                        // no updated finish time; retry polling after a short delay
+                        setTimeout(async () => {
+                            const r2 = await fetch("/api/player/dive-status");
+                            const d2 = await r2.json();
+                            if (d2.completed) {
+                                setState({ status: "complete", awardedItem: d2.awardedItem ?? null });
+                                onDiveComplete?.();
+                            } else if (!d2.isDiving) {
+                                setState({ status: "idle" });
+                            } else if (d2.diveFinishesAt) {
+                                setState({ status: "diving", diveFinishesAt: d2.diveFinishesAt });
+                            }
+                        }, 2000);
+                    }
                 }
             }
         }, 500);

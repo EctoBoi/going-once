@@ -7,7 +7,6 @@ import toast from "react-hot-toast";
 import ItemArtwork from "@/components/ItemArtwork";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
-import MarketEvaluator from "@/components/MarketEvaluator";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
 import { formatMoney } from "@/lib/game/priceUtils";
 
@@ -36,7 +35,7 @@ type Auction = {
         description?: string | null;
         category: string;
     };
-    bids: Bid[];
+    bids?: Bid[];
 };
 
 function useCountdown(endsAt: string) {
@@ -82,10 +81,13 @@ export default function AuctionDetail({
     onClose?: () => void;
     onWalletUpdate?: (wallet: number) => void;
 }) {
+    const maxMainStyle = onClose ? { maxHeight: "calc(100vh - 4rem)" } : undefined;
     const [currentBid, setCurrentBid] = useState(auction.currentBid);
     const [leadingPlayerId, setLeadingPlayerId] = useState<string | null>(auction.leadingPlayerId ?? null);
     const [buyNow] = useState<number | null | undefined>(auction.buyNow);
-    const [bids, setBids] = useState(auction.bids);
+    const [bids, setBids] = useState<Bid[]>(auction.bids ?? []);
+    const [hasLoadedBidHistory, setHasLoadedBidHistory] = useState(Array.isArray(auction.bids));
+    const [historyLoading, setHistoryLoading] = useState(false);
     const [bidAmount, setBidAmount] = useState("");
     const [wallet, setWallet] = useState(playerWallet);
     const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,37 @@ export default function AuctionDetail({
     const router = useRouter();
 
     const isLeading = currentPlayerId && leadingPlayerId === currentPlayerId;
+
+    useEffect(() => {
+        if (hasLoadedBidHistory) return;
+
+        let mounted = true;
+        const timeoutId = window.setTimeout(async () => {
+            setHistoryLoading(true);
+
+            try {
+                const res = await fetch(`/api/auctions/${auction.id}?includeBids=1`);
+                if (!res.ok || !mounted) return;
+
+                const data = await res.json();
+                if (!data.auction || !mounted || !Array.isArray(data.auction.bids)) return;
+
+                setBids(data.auction.bids);
+                setHasLoadedBidHistory(true);
+            } catch {
+                // ignore
+            } finally {
+                if (mounted) {
+                    setHistoryLoading(false);
+                }
+            }
+        }, 250);
+
+        return () => {
+            mounted = false;
+            clearTimeout(timeoutId);
+        };
+    }, [auction.id, hasLoadedBidHistory]);
 
     // Re-fetch auction (bids + current state) as a polling fallback
     // in case Supabase Realtime on the Bid table is not enabled
@@ -110,7 +143,10 @@ export default function AuctionDetail({
                 const a = data.auction;
                 setCurrentBid(a.currentBid);
                 setLeadingPlayerId(a.leadingPlayerId ?? null);
-                setBids(a.bids ?? []);
+                if (Array.isArray(a.bids)) {
+                    setBids(a.bids);
+                    setHasLoadedBidHistory(true);
+                }
             } catch {
                 // ignore
             }
@@ -263,7 +299,7 @@ export default function AuctionDetail({
     const hostLabel = auction.hostName ?? (auction.hostIsNPC ? "NPC" : "Unknown");
 
     return (
-        <main className={onClose ? "p-4 sm:p-6" : "min-h-screen p-4 sm:p-8 max-w-2xl mx-auto"}>
+        <main className={(onClose ? "p-4 sm:p-6" : "min-h-screen p-4 sm:p-8 max-w-2xl mx-auto") + " no-visible-scrollbar"} style={maxMainStyle}>
             {onClose ? (
                 <button onClick={onClose} className="text-sm text-gray-500 hover:underline">
                     ← Back to auctions
@@ -355,7 +391,9 @@ export default function AuctionDetail({
 
             <div className="mt-6">
                 <h2 className="font-semibold mb-3">Bid History</h2>
-                {bids.length === 0 ? (
+                {historyLoading && bids.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Loading bid history…</p>
+                ) : bids.length === 0 ? (
                     <p className="text-gray-500 text-sm">No bids yet. Be the first!</p>
                 ) : (
                     <div className="flex flex-col gap-2">

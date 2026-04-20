@@ -165,9 +165,10 @@ export default function DashboardShell({
         }
     }, [auctionToPlayerRefFromEntries]);
 
-    const fetchAuctionSummary = useCallback(async (auctionId: string) => {
+    const fetchAuctionSummary = useCallback(async (auctionId: string, options?: { includeBids?: boolean }) => {
         try {
-            const res = await fetch(`/api/auctions/${auctionId}`);
+            const query = options?.includeBids ? "?includeBids=1" : "";
+            const res = await fetch(`/api/auctions/${auctionId}${query}`);
             if (!res.ok) return null;
             const data = await res.json();
             return data?.auction ?? null;
@@ -279,16 +280,18 @@ export default function DashboardShell({
         if (!currentPlayerId) return;
 
         let channel: ReturnType<(typeof supabase)["channel"]> | null = null;
+        let cancelled = false;
 
         const subscribe = async () => {
             await supabase.realtime.setAuth();
+            if (cancelled) return;
 
             const {
                 data: { user },
             } = await supabase.auth.getUser();
 
             const uid = user?.id;
-            if (!uid || uid !== currentPlayerId) return;
+            if (cancelled || !uid || uid !== currentPlayerId) return;
 
             const topic = `player-auctions:${uid}`;
 
@@ -327,7 +330,7 @@ export default function DashboardShell({
                     const previousStatus = typeof oldRecord.status === "string" ? oldRecord.status : null;
                     if (updated.status !== "resolved" || previousStatus === "resolved") return;
 
-                    const fetched = await fetchAuctionSummary(updated.id);
+                    const fetched = await fetchAuctionSummary(updated.id, { includeBids: true });
                     const finalBid = typeof updated.currentBid === "number" ? updated.currentBid : fetched?.currentBid;
                     const listedBy = updated.listedBy ?? fetched?.listedBy;
                     const winningPlayerId = updated.winningPlayerId ?? fetched?.winningPlayerId ?? null;
@@ -385,11 +388,17 @@ export default function DashboardShell({
                     refreshInventory();
                 })
                 .subscribe();
+
+            if (cancelled && channel) {
+                supabase.removeChannel(channel);
+                channel = null;
+            }
         };
 
         subscribe();
 
         return () => {
+            cancelled = true;
             if (channel) {
                 supabase.removeChannel(channel);
             }

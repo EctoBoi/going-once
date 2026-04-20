@@ -50,9 +50,9 @@ export default function ItemArtwork({
                     src={getItemImageSrc(itemName)}
                     alt={itemName}
                     fill
-                    {...(typeof size === "number" ? { sizes: `${size}px` } : {})}
+                    sizes={typeof size === "number" ? `${size}px` : "(min-width: 640px) 128px, 80px"}
                     priority={priority}
-                    className={["object-cover transition-transform duration-300 group-hover:scale-[1.03]", imageClassName].join(" ")}
+                    className={["object-cover transition-transform duration-300 group-hover:scale-[1.10]", imageClassName].join(" ")}
                     onError={() => setFailed(true)}
                 />
             )}

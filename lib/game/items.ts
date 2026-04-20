@@ -114,8 +114,8 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     { name: "Vintage Firetruck", description: "Community Mascot", category: "vehicle", internalValue: 695000 },
     { name: "Classic Station Wagon", description: "Family Heirloom", category: "vehicle", internalValue: 600000 },
     { name: "Runabout Speedboat", description: "Polished Dreams", category: "vehicle", internalValue: 820000 },
-    { name: "Diamond-Encrusted Yacht", description: "Chase Item", category: "vehicle", internalValue: 10000000 },
-    { name: "Lunar Limo Prototype", description: "Chase Item", category: "vehicle", internalValue: 1750000 },
+    { name: "Diamond-Encrusted Yacht", description: "Chase Item", category: "vehicle", internalValue: 9999999 },
+    { name: "Lunar Limo Prototype", description: "Chase Item", category: "vehicle", internalValue: 3333333 },
 
     // Property
     { name: "Beachfront Timeshare Voucher", description: "Optimistic", category: "property", internalValue: 160000 },
@@ -135,5 +135,5 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     { name: "Secret Wine Cellar", description: "Mostly Juice", category: "property", internalValue: 240000 },
     { name: "Helipad", description: "Toy Sized", category: "property", internalValue: 2400 },
     { name: "Riverside Gazebo", description: "Romantic, Damp", category: "property", internalValue: 425000 },
-    { name: "Haunted Victorian Mansion", description: "Chase Item", category: "property", internalValue: 2500000 },
+    { name: "Haunted Victorian Mansion", description: "Chase Item", category: "property", internalValue: 6666666 },
 ];

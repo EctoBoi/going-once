@@ -1,4 +1,4 @@
-import { AuctionLifecycleError, executeBuyNow, reconcileAuctionLifecycle } from "@/lib/game/auctionLifecycle";
+import { AuctionLifecycleError, executeBuyNow, reconcileAuctionById } from "@/lib/game/auctionLifecycle";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
@@ -22,7 +22,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
         const buyerName = player.username ?? `Player-${user.id.slice(0, 6)}`;
 
-        await reconcileAuctionLifecycle();
+        await reconcileAuctionById(id);
         await executeBuyNow({
             auctionId: id,
             bidderName: buyerName,
