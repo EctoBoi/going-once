@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import NumberInput from "./NumberInput";
 import { useRouter } from "next/navigation";
 
 export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { playerItemId: string; acquiredFor: number; onSuccess?: () => void }) {
@@ -76,19 +77,18 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
         <div className="flex flex-col gap-4">
             <div>
                 <label className="text-sm text-gray-400 block mb-1">Minimum bid ($)</label>
-                <input type="number" value={minBid} onChange={(e) => setMinBid(e.target.value)} className="border rounded p-2 w-full" min="0" step="1" />
+                <NumberInput value={minBid} onChange={setMinBid} min={0} step={1} inputClassName="border rounded p-2 w-full" />
             </div>
 
             <div>
                 <label className="text-sm text-gray-400 block mb-1">Buy-now price ($) — optional</label>
-                <input
-                    type="number"
+                <NumberInput
                     value={buyNow}
-                    onChange={(e) => setBuyNow(e.target.value)}
+                    onChange={setBuyNow}
+                    min={0}
+                    step={1}
+                    inputClassName="border rounded p-2 w-full"
                     placeholder="Leave blank to disable"
-                    className="border rounded p-2 w-full"
-                    min="0"
-                    step="1"
                 />
             </div>
 

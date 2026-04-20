@@ -43,3 +43,18 @@ body {
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
 }
+
+/* Hide native number input spinners for inputs using the helper class */
+input.no-spinner::-webkit-outer-spin-button,
+input.no-spinner::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input.no-spinner {
+    -moz-appearance: textfield;
+}
+
+/* Make the custom spinner buttons visually distinct on hover */
+.no-spinner + div button:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}

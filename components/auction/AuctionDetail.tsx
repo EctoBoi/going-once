@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import ItemArtwork from "@/components/ItemArtwork";
+import NumberInput from "@/components/NumberInput";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
@@ -412,7 +413,6 @@ export default function AuctionDetail({
                         <div>
                             <h1 className="text-2xl font-bold">{auction.item.name}</h1>
                             <p className="mt-1 text-sm text-stone-400 capitalize">{formatItemLabel(auction.item)}</p>
-                            <p className="mt-3 text-sm leading-6 text-stone-300">{auction.item.description}</p>
                             <p className="mt-3 text-xs text-stone-400">
                                 Hosted by <span className={auction.hostIsNPC ? "text-yellow-400 font-medium" : "text-stone-300"}>{hostLabel}</span>
                                 {auction.hostIsNPC && <span className="ml-1 text-yellow-500 text-[10px] uppercase tracking-wide font-semibold">NPC</span>}
@@ -446,14 +446,14 @@ export default function AuctionDetail({
                 {!isAuctionClosed && !isOwnListing && (
                     <div className="mt-6 space-y-2">
                         <div className="flex">
-                            <input
-                                type="number"
-                                placeholder={`Min $${formatMoney(minNextBid)}`}
+                            <NumberInput
                                 value={bidAmount}
-                                onChange={(e) => setBidAmount(e.target.value)}
-                                className="min-w-0 w-24 sm:flex-1 rounded border border-stone-700 bg-stone-900 p-1 sm:p-2 text-sm sm:text-base"
+                                onChange={setBidAmount}
                                 min={minNextBid}
                                 step={1}
+                                className="min-w-0 w-24 sm:flex-1 border-l-4 border-stone-50"
+                                inputClassName="rounded border border-stone-700 bg-stone-900 p-1 sm:p-2 text-sm sm:text-base"
+                                placeholder={`Min $${formatMoney(minNextBid)}`}
                             />
                             {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
                         </div>
