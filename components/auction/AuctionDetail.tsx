@@ -314,7 +314,7 @@ export default function AuctionDetail({
 
                 {!ended && !isOwnListing && (
                     <div className="mt-6 space-y-2">
-                        <div className="flex gap-2">
+                        <div className="flex">
                             <input
                                 type="number"
                                 placeholder={`Min $${formatMoney(minNextBid)}`}
@@ -327,18 +327,24 @@ export default function AuctionDetail({
                             {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
                         </div>
 
-                        {buyNow != null && buyNow > currentBid && (
+                        <div className="flex gap-4">
+                            {buyNow != null && buyNow > currentBid && (
+                                <button
+                                    onClick={handleBuyNow}
+                                    disabled={buyNowLoading || isDiving || wallet < buyNow}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded font-semibold disabled:opacity-50 transition-colors"
+                                >
+                                    {buyNowLoading ? "Processing..." : `Buy Now — $${formatMoney(buyNow ?? 0)}`}
+                                </button>
+                            )}
                             <button
-                                onClick={handleBuyNow}
-                                disabled={buyNowLoading || isDiving || wallet < buyNow}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded font-semibold disabled:opacity-50 transition-colors"
+                                onClick={handleBid}
+                                disabled={loading || isDiving}
+                                className="w-full rounded bg-slate-950 px-6 py-2 text-white disabled:opacity-50"
                             >
-                                {buyNowLoading ? "Processing..." : `Buy Now — $${formatMoney(buyNow ?? 0)}`}
+                                {loading ? "Bidding..." : "Bid"}
                             </button>
-                        )}
-                        <button onClick={handleBid} disabled={loading || isDiving} className="rounded bg-black px-6 py-2 text-white disabled:opacity-50">
-                            {loading ? "Bidding..." : "Bid"}
-                        </button>
+                        </div>
                     </div>
                 )}
 
