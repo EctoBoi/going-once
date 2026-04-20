@@ -16,38 +16,56 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     await reconcileAuctionById(id);
 
+    const playerPromise = prisma.player.findUnique({ where: { id: user.id } });
+
+    if (includeBids) {
+        const [auction, player] = await Promise.all([
+            prisma.auction.findUnique({
+                where: { id },
+                include: {
+                    item: true,
+                    bids: {
+                        orderBy: { placedAt: "desc" },
+                        take: 10,
+                    },
+                },
+            }),
+            playerPromise,
+        ]);
+
+        if (!auction) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+
+        return NextResponse.json({
+            ok: true,
+            auction: {
+                ...auction,
+                endsAt: auction.endsAt.toISOString(),
+                bids: auction.bids.map((bid) => ({ ...bid, placedAt: bid.placedAt.toISOString() })),
+            },
+            playerWallet: player?.wallet ?? 0,
+            isOwnListing: auction.listedBy === user.id,
+            currentPlayerId: user.id,
+            currentPlayerName: player?.username ?? user.email ?? `Player-${user.id.slice(0, 6)}`,
+        });
+    }
+
     const [auction, player] = await Promise.all([
         prisma.auction.findUnique({
             where: { id },
-            include: includeBids
-                ? {
-                      item: true,
-                      bids: {
-                          orderBy: { placedAt: "desc" },
-                          take: 10,
-                      },
-                  }
-                : {
-                      item: true,
-                  },
+            include: {
+                item: true,
+            },
         }),
-        prisma.player.findUnique({ where: { id: user.id } }),
+        playerPromise,
     ]);
 
     if (!auction) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
-
-    // Safely map bids only when present on the returned auction object
-    let bidsOut;
-    if (includeBids && "bids" in auction && auction.bids) {
-        bidsOut = auction.bids.map((b) => ({ ...b, placedAt: b.placedAt.toISOString() }));
-    }
 
     return NextResponse.json({
         ok: true,
         auction: {
             ...auction,
             endsAt: auction.endsAt.toISOString(),
-            ...(bidsOut ? { bids: bidsOut } : {}),
         },
         playerWallet: player?.wallet ?? 0,
         isOwnListing: auction.listedBy === user.id,

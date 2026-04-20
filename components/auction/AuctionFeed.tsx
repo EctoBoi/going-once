@@ -108,11 +108,30 @@ export default function AuctionFeed({
                         return;
                     }
 
+                    const auctionId = updated.id;
+
                     if (updated.status && updated.status !== "active") {
-                        playerLedRef.current.delete(updated.id);
-                        outbidAuctions.current.delete(updated.id);
-                        outbidToastTimesRef.current.delete(updated.id);
-                        setAuctions((prev) => prev.filter((a) => a.id !== updated.id));
+                        const pendingToasts: Array<() => void> = [];
+                        const hasLeadingPlayer = Object.prototype.hasOwnProperty.call(updated, "leadingPlayerId");
+
+                        setAuctions((prev) => {
+                            const existing = prev.find((a) => a.id === auctionId);
+                            const playerWasLeading = Boolean(currentPlayerId && playerLedRef.current.has(auctionId));
+
+                            if (existing && playerWasLeading && hasLeadingPlayer && updated.leadingPlayerId !== currentPlayerId) {
+                                const finalPrice = typeof updated.currentBid === "number" ? updated.currentBid : existing.currentBid;
+                                pendingToasts.push(() =>
+                                    toast.error(`Another bidder bought out ${existing.item.name} for $${formatMoney(finalPrice)} while you were leading.`),
+                                );
+                            }
+
+                            return prev.filter((a) => a.id !== auctionId);
+                        });
+
+                        playerLedRef.current.delete(auctionId);
+                        outbidAuctions.current.delete(auctionId);
+                        outbidToastTimesRef.current.delete(auctionId);
+                        pendingToasts.forEach((fn) => fn());
                         return;
                     }
 

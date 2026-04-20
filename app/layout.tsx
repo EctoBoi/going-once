@@ -47,7 +47,7 @@ export default async function RootLayout({
                 <NavHeader username={username} />
                 {children}
                 <CleanupClient />
-                <Toaster position="bottom-right" toastOptions={{ duration: 5000 }} />
+                <Toaster position="bottom-right" toastOptions={{ duration: 7000 }} />
             </body>
         </html>
     );

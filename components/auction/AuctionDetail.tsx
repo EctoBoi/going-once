@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -30,6 +30,7 @@ type Auction = {
     hostName?: string | null;
     hostIsNPC?: boolean;
     leadingPlayerId?: string | null;
+    winningPlayerId?: string | null;
     item: {
         name: string;
         description?: string | null;
@@ -84,6 +85,7 @@ export default function AuctionDetail({
     const maxMainStyle = onClose ? { maxHeight: "calc(100vh - 4rem)" } : undefined;
     const [currentBid, setCurrentBid] = useState(auction.currentBid);
     const [leadingPlayerId, setLeadingPlayerId] = useState<string | null>(auction.leadingPlayerId ?? null);
+    const [auctionStatus, setAuctionStatus] = useState(auction.status);
     const [buyNow] = useState<number | null | undefined>(auction.buyNow);
     const [bids, setBids] = useState<Bid[]>(auction.bids ?? []);
     const [hasLoadedBidHistory, setHasLoadedBidHistory] = useState(Array.isArray(auction.bids));
@@ -96,8 +98,56 @@ export default function AuctionDetail({
     const [isDiving, setIsDiving] = useState(false);
     const { timeLeft, ended } = useCountdown(auction.endsAt);
     const router = useRouter();
+    const currentBidRef = useRef(auction.currentBid);
+    const leadingPlayerIdRef = useRef<string | null>(auction.leadingPlayerId ?? null);
+    const auctionStatusRef = useRef(auction.status);
+    const buyoutToastShownRef = useRef(false);
 
     const isLeading = currentPlayerId && leadingPlayerId === currentPlayerId;
+    const isAuctionClosed = ended || auctionStatus !== "active";
+
+    const applyAuctionSnapshot = useCallback(
+        (next: { currentBid?: number; leadingPlayerId?: string | null; status?: string; winningPlayerId?: string | null }) => {
+            const previousLeadingPlayerId = leadingPlayerIdRef.current;
+            const previousStatus = auctionStatusRef.current;
+            const hasLeadingPlayer = Object.prototype.hasOwnProperty.call(next, "leadingPlayerId");
+            const nextLeadingPlayerId = hasLeadingPlayer ? (next.leadingPlayerId ?? null) : previousLeadingPlayerId;
+            const nextStatus = typeof next.status === "string" ? next.status : previousStatus;
+
+            if (typeof next.currentBid === "number") {
+                currentBidRef.current = next.currentBid;
+                setCurrentBid(next.currentBid);
+            }
+
+            if (hasLeadingPlayer) {
+                leadingPlayerIdRef.current = nextLeadingPlayerId;
+                setLeadingPlayerId(nextLeadingPlayerId);
+            }
+
+            if (typeof next.status === "string") {
+                auctionStatusRef.current = next.status;
+                setAuctionStatus(next.status);
+            }
+
+            const playerWasLeading = Boolean(currentPlayerId && previousLeadingPlayerId === currentPlayerId);
+            const lostToBuyNow = playerWasLeading && previousStatus === "active" && nextStatus !== "active" && nextLeadingPlayerId !== currentPlayerId;
+
+            if (lostToBuyNow && !buyoutToastShownRef.current) {
+                buyoutToastShownRef.current = true;
+                const finalPrice = typeof next.currentBid === "number" ? next.currentBid : (buyNow ?? currentBidRef.current);
+                toast.error(`Another bidder bought out ${auction.item.name} for $${formatMoney(finalPrice)} while you were leading.`);
+            }
+
+            if (currentPlayerId && nextStatus === "active" && nextLeadingPlayerId === currentPlayerId) {
+                buyoutToastShownRef.current = false;
+            }
+        },
+        [auction.item.name, buyNow, currentPlayerId],
+    );
+
+    useEffect(() => {
+        setWallet(playerWallet);
+    }, [playerWallet]);
 
     useEffect(() => {
         if (hasLoadedBidHistory) return;
@@ -141,8 +191,12 @@ export default function AuctionDetail({
                 const data = await res.json();
                 if (!data.auction) return;
                 const a = data.auction;
-                setCurrentBid(a.currentBid);
-                setLeadingPlayerId(a.leadingPlayerId ?? null);
+                applyAuctionSnapshot({
+                    currentBid: a.currentBid,
+                    leadingPlayerId: a.leadingPlayerId ?? null,
+                    status: a.status,
+                    winningPlayerId: a.winningPlayerId ?? null,
+                });
                 if (Array.isArray(a.bids)) {
                     setBids(a.bids);
                     setHasLoadedBidHistory(true);
@@ -156,7 +210,7 @@ export default function AuctionDetail({
             mounted = false;
             clearInterval(interval);
         };
-    }, [auction.id]);
+    }, [applyAuctionSnapshot, auction.id]);
 
     // Realtime subscription
     useEffect(() => {
@@ -186,16 +240,13 @@ export default function AuctionDetail({
                         const cleaned = prev.filter((b) => !b.id.startsWith("optimistic-"));
                         return [newBid as typeof newBid & { id: string }, ...cleaned];
                     });
-                    setCurrentBid(newBid.amount);
-                    setLeadingPlayerId(newBid.playerId);
+                    applyAuctionSnapshot({ currentBid: newBid.amount, leadingPlayerId: newBid.playerId ?? null });
                 })
                 .on("broadcast", { event: "UPDATE" }, (payload) => {
                     const { record } = extractBroadcastChange(payload);
-                    const updated = record as { currentBid?: number; leadingPlayerId?: string | null; status?: string };
+                    const updated = record as { currentBid?: number; leadingPlayerId?: string | null; status?: string; winningPlayerId?: string | null };
 
-                    if (updated.currentBid === undefined) return;
-                    setCurrentBid(updated.currentBid);
-                    setLeadingPlayerId(updated.leadingPlayerId ?? null);
+                    applyAuctionSnapshot(updated);
                 })
                 .subscribe();
         };
@@ -207,7 +258,51 @@ export default function AuctionDetail({
                 supabase.removeChannel(channel);
             }
         };
-    }, [auction.id, auction.item.name, currentPlayerId, isLeading]);
+    }, [applyAuctionSnapshot, auction.id]);
+
+    useEffect(() => {
+        if (!currentPlayerId) return;
+
+        let channel: ReturnType<(typeof supabase)["channel"]> | null = null;
+        let cancelled = false;
+
+        const subscribe = async () => {
+            await supabase.realtime.setAuth();
+            if (cancelled) return;
+
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            const uid = user?.id;
+            if (cancelled || !uid || uid !== currentPlayerId) return;
+
+            channel = supabase
+                .channel(`player-wallet:${uid}`, { config: { private: true } })
+                .on("broadcast", { event: "UPDATE" }, (payload) => {
+                    const { record: updated } = extractBroadcastChange(payload);
+                    const ownerId = (updated["id"] ?? updated["player_id"] ?? updated["playerId"] ?? updated["user_id"] ?? updated["userId"]) as string | null;
+
+                    if (ownerId && ownerId !== uid) return;
+
+                    const updatedWallet = updated["wallet"];
+                    if (typeof updatedWallet === "number") {
+                        setWallet(updatedWallet);
+                        onWalletUpdate?.(updatedWallet);
+                    }
+                })
+                .subscribe();
+        };
+
+        subscribe();
+
+        return () => {
+            cancelled = true;
+            if (channel) {
+                supabase.removeChannel(channel);
+            }
+        };
+    }, [currentPlayerId, onWalletUpdate]);
 
     const minNextBid = currentBid + 1;
 
@@ -348,7 +443,7 @@ export default function AuctionDetail({
                     </div>
                 </div>
 
-                {!ended && !isOwnListing && (
+                {!isAuctionClosed && !isOwnListing && (
                     <div className="mt-6 space-y-2">
                         <div className="flex">
                             <input
@@ -384,7 +479,9 @@ export default function AuctionDetail({
                     </div>
                 )}
 
-                {!ended && isOwnListing && <p className="mt-6 text-sm text-gray-500 italic">This is your listing — you cannot bid or buy it.</p>}
+                {!isAuctionClosed && isOwnListing && <p className="mt-6 text-sm text-gray-500 italic">This is your listing — you cannot bid or buy it.</p>}
+
+                {auctionStatus !== "active" && <p className="mt-6 text-sm text-amber-400">This auction is no longer active.</p>}
 
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
             </div>
