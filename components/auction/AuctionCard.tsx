@@ -121,9 +121,9 @@ export default function AuctionCard({
                         e.stopPropagation();
                         onBuyNow(auction.id);
                     }}
-                    className="mt-6 w-full text-sm bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded font-medium transition-colors"
+                    className="mt-6 w-full text-sm bg-slate-800 hover:bg-slate-600 text-white py-1.5 rounded font-medium transition-colors"
                 >
-                    Buy Now — ${formatMoney(auction.buyNow)}
+                    View Listing
                 </button>
             )}
         </>

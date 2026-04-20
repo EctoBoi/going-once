@@ -325,9 +325,6 @@ export default function AuctionDetail({
                                 step={1}
                             />
                             {isDiving && <p className="text-sm text-yellow-600 self-center">You cannot bid while dumpster-diving.</p>}
-                            <button onClick={handleBid} disabled={loading || isDiving} className="rounded bg-black px-6 py-2 text-white disabled:opacity-50">
-                                {loading ? "Bidding..." : "Bid"}
-                            </button>
                         </div>
 
                         {buyNow != null && buyNow > currentBid && (
@@ -339,6 +336,9 @@ export default function AuctionDetail({
                                 {buyNowLoading ? "Processing..." : `Buy Now — $${formatMoney(buyNow ?? 0)}`}
                             </button>
                         )}
+                        <button onClick={handleBid} disabled={loading || isDiving} className="rounded bg-black px-6 py-2 text-white disabled:opacity-50">
+                            {loading ? "Bidding..." : "Bid"}
+                        </button>
                     </div>
                 )}
 
