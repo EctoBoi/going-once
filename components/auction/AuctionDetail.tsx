@@ -340,7 +340,7 @@ export default function AuctionDetail({
                             <button
                                 onClick={handleBid}
                                 disabled={loading || isDiving}
-                                className="w-full rounded bg-neutral-950 px-6 py-2 text-white disabled:opacity-50"
+                                className="w-full rounded bg-neutral-900 px-6 py-2 text-white disabled:opacity-50"
                             >
                                 {loading ? "Bidding..." : "Bid"}
                             </button>
