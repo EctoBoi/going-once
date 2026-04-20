@@ -3,6 +3,9 @@ import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/aucti
 import { roundDownOnePlaceOver } from "@/lib/game/priceUtils";
 import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
 
+const NPC_EVALUATION_KEY = "npc_evaluation";
+const DEFAULT_NPC_EVALUATION_LEASE_MS = 12_000;
+
 function isStatementTimeoutError(error: unknown) {
     const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
     const originalCode = errWithCause?.cause?.originalCode;
@@ -30,6 +33,26 @@ function isExpectedScheduledBidError(error: unknown) {
     }
 
     return isStatementTimeoutError(error);
+}
+
+export async function shouldRunNPCEvaluation(leaseMs = DEFAULT_NPC_EVALUATION_LEASE_MS): Promise<boolean> {
+    const threshold = new Date(Date.now() - leaseMs);
+
+    await prisma.keyValue.upsert({
+        where: { key: NPC_EVALUATION_KEY },
+        create: { key: NPC_EVALUATION_KEY, value: new Date(0).toISOString() },
+        update: {},
+    });
+
+    const result = await prisma.keyValue.updateMany({
+        where: {
+            key: NPC_EVALUATION_KEY,
+            updatedAt: { lt: threshold },
+        },
+        data: { value: new Date().toISOString() },
+    });
+
+    return result.count > 0;
 }
 
 // Probability function
