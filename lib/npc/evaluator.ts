@@ -3,6 +3,35 @@ import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/aucti
 import { roundDownOnePlaceOver } from "@/lib/game/priceUtils";
 import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
 
+function isStatementTimeoutError(error: unknown) {
+    const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
+    const originalCode = errWithCause?.cause?.originalCode;
+    if (originalCode === "57014" || originalCode === 57014) {
+        return true;
+    }
+
+    const message =
+        typeof errWithCause?.message === "string"
+            ? errWithCause.message
+            : errWithCause?.message !== undefined
+              ? String(errWithCause.message)
+              : typeof errWithCause?.cause?.message === "string"
+                ? errWithCause.cause.message
+                : errWithCause?.cause?.message !== undefined
+                  ? String(errWithCause.cause.message)
+                  : "";
+
+    return message.toLowerCase().includes("statement timeout");
+}
+
+function isExpectedScheduledBidError(error: unknown) {
+    if (error instanceof AuctionLifecycleError) {
+        return error.code === "auction_not_active" || error.code === "bid_too_low";
+    }
+
+    return isStatementTimeoutError(error);
+}
+
 // Probability function
 // P(bid) = baseRate * (1 - price/V)^k * (1 - elapsed/duration)^j
 // k and j control how steeply interest drops off
@@ -145,15 +174,20 @@ export async function evaluateNPCBids() {
 async function scheduleNPCBid(auctionId: string, personaName: string, amount: number, delayMs: number) {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-    // Re-check auction is still active and bid is still valid
-    const auction = await prisma.auction.findUnique({
-        where: { id: auctionId },
-    });
-
-    if (!auction || auction.status !== "active" || new Date() > auction.endsAt) return;
-    if (amount <= auction.currentBid) return;
-
     try {
+        // Re-check only the fields needed for a delayed best-effort bid.
+        const auction = await prisma.auction.findUnique({
+            where: { id: auctionId },
+            select: {
+                status: true,
+                endsAt: true,
+                currentBid: true,
+            },
+        });
+
+        if (!auction || auction.status !== "active" || new Date() > auction.endsAt) return;
+        if (amount <= auction.currentBid) return;
+
         await placeBid({
             auctionId,
             bidderName: personaName,
@@ -161,7 +195,7 @@ async function scheduleNPCBid(auctionId: string, personaName: string, amount: nu
             isNPC: true,
         });
     } catch (error) {
-        if (error instanceof AuctionLifecycleError) {
+        if (isExpectedScheduledBidError(error)) {
             return;
         }
         throw error;

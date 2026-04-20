@@ -416,120 +416,137 @@ export async function reconcileAuctionLifecycle(now = new Date()) {
 
 export async function placeBid(input: PlaceBidInput) {
     const now = input.now ?? new Date();
-
-    return withSerializableTransaction(async (tx) => {
-        const auction = await tx.auction.findUnique({
-            where: { id: input.auctionId },
-            include: {
-                reservations: {
-                    where: { status: BidReservationStatus.active },
-                    orderBy: { createdAt: "desc" },
-                    take: 1,
+    try {
+        return await withSerializableTransaction(async (tx) => {
+            const auction = await tx.auction.findUnique({
+                where: { id: input.auctionId },
+                include: {
+                    reservations: {
+                        where: { status: BidReservationStatus.active },
+                        orderBy: { createdAt: "desc" },
+                        take: 1,
+                    },
                 },
-            },
-        });
-
-        if (!auction) {
-            throw new AuctionLifecycleError("Auction not found", 404, "auction_not_found");
-        }
-        if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
-            throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
-        }
-        if (input.amount <= auction.currentBid) {
-            throw new AuctionLifecycleError(`Bid must be higher than $${formatMoney(auction.currentBid)}`, 400, "bid_too_low");
-        }
-        if (!input.isNPC && !input.playerId) {
-            throw new AuctionLifecycleError("Player bids require a player id", 500, "missing_player_id");
-        }
-        // Prevent the auction host from bidding on their own listing
-        if (!input.isNPC && input.playerId && auction.listedBy === input.playerId) {
-            throw new AuctionLifecycleError("You cannot bid on your own auction", 403, "self_bid_forbidden");
-        }
-        // Prevent an NPC host from bidding on their own NPC-hosted listing
-        if (input.isNPC && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
-            throw new AuctionLifecycleError("NPCs cannot bid on their own auction", 403, "self_bid_forbidden");
-        }
-
-        const activeReservation = auction.reservations[0] ?? null;
-
-        let updatedWallet: number | undefined;
-        if (!input.isNPC && input.playerId) {
-            const player = await tx.player.findUnique({ where: { id: input.playerId } });
-            if (!player) {
-                throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
-            }
-
-            const reclaimableAmount = activeReservation?.playerId === input.playerId ? activeReservation.amount : 0;
-            if (player.wallet + reclaimableAmount < input.amount) {
-                throw new AuctionLifecycleError("Insufficient funds", 400, "insufficient_funds");
-            }
-        }
-
-        if (activeReservation) {
-            await releaseReservation(tx, activeReservation, now, BidReservationStatus.released, "outbid");
-        }
-
-        if (auction.leadingBidId) {
-            await tx.bid.update({
-                where: { id: auction.leadingBidId },
-                data: { supersededAt: now },
-            });
-        }
-
-        const bid = await tx.bid.create({
-            data: {
-                auctionId: auction.id,
-                bidderName: input.bidderName,
-                amount: input.amount,
-                isNPC: input.isNPC,
-                playerId: input.playerId ?? null,
-                placedAt: now,
-            },
-        });
-
-        if (!input.isNPC && input.playerId) {
-            const player = await tx.player.update({
-                where: { id: input.playerId },
-                data: { wallet: { decrement: input.amount } },
             });
 
-            updatedWallet = player.wallet;
+            if (!auction) {
+                throw new AuctionLifecycleError("Auction not found", 404, "auction_not_found");
+            }
+            if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
+                throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
+            }
+            if (input.amount <= auction.currentBid) {
+                throw new AuctionLifecycleError(`Bid must be higher than $${formatMoney(auction.currentBid)}`, 400, "bid_too_low");
+            }
+            if (!input.isNPC && !input.playerId) {
+                throw new AuctionLifecycleError("Player bids require a player id", 500, "missing_player_id");
+            }
+            // Prevent the auction host from bidding on their own listing
+            if (!input.isNPC && input.playerId && auction.listedBy === input.playerId) {
+                throw new AuctionLifecycleError("You cannot bid on your own auction", 403, "self_bid_forbidden");
+            }
+            // Prevent an NPC host from bidding on their own NPC-hosted listing
+            if (input.isNPC && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
+                throw new AuctionLifecycleError("NPCs cannot bid on their own auction", 403, "self_bid_forbidden");
+            }
 
-            const reservation = await tx.bidReservation.create({
+            const activeReservation = auction.reservations[0] ?? null;
+
+            let updatedWallet: number | undefined;
+            if (!input.isNPC && input.playerId) {
+                const player = await tx.player.findUnique({ where: { id: input.playerId } });
+                if (!player) {
+                    throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
+                }
+
+                const reclaimableAmount = activeReservation?.playerId === input.playerId ? activeReservation.amount : 0;
+                if (player.wallet + reclaimableAmount < input.amount) {
+                    throw new AuctionLifecycleError("Insufficient funds", 400, "insufficient_funds");
+                }
+            }
+
+            if (activeReservation) {
+                await releaseReservation(tx, activeReservation, now, BidReservationStatus.released, "outbid");
+            }
+
+            if (auction.leadingBidId) {
+                await tx.bid.update({
+                    where: { id: auction.leadingBidId },
+                    data: { supersededAt: now },
+                });
+            }
+
+            const bid = await tx.bid.create({
                 data: {
                     auctionId: auction.id,
-                    playerId: input.playerId,
-                    bidId: bid.id,
+                    bidderName: input.bidderName,
                     amount: input.amount,
-                    status: BidReservationStatus.active,
-                    expiresAt: auction.endsAt,
-                    reason: "leading_bid",
+                    isNPC: input.isNPC,
+                    playerId: input.playerId ?? null,
+                    placedAt: now,
                 },
             });
 
-            await tx.bid.update({
-                where: { id: bid.id },
-                data: { reservation: { connect: { id: reservation.id } } },
+            if (!input.isNPC && input.playerId) {
+                const player = await tx.player.update({
+                    where: { id: input.playerId },
+                    data: { wallet: { decrement: input.amount } },
+                });
+
+                updatedWallet = player.wallet;
+
+                const reservation = await tx.bidReservation.create({
+                    data: {
+                        auctionId: auction.id,
+                        playerId: input.playerId,
+                        bidId: bid.id,
+                        amount: input.amount,
+                        status: BidReservationStatus.active,
+                        expiresAt: auction.endsAt,
+                        reason: "leading_bid",
+                    },
+                });
+
+                await tx.bid.update({
+                    where: { id: bid.id },
+                    data: { reservation: { connect: { id: reservation.id } } },
+                });
+            }
+
+            await tx.auction.update({
+                where: { id: auction.id },
+                data: {
+                    currentBid: input.amount,
+                    leadingBidId: bid.id,
+                    leadingPlayerId: input.playerId ?? null,
+                },
             });
+
+            return {
+                bid,
+                currentBid: input.amount,
+                wallet: updatedWallet,
+            };
+        });
+    } catch (error) {
+        // If the transaction failed after retries due to write conflicts or
+        // serialization failures, it's likely the auction state changed
+        // (e.g., it was claimed/resolved). Check the latest auction state
+        // and surface a user-friendly error if the auction is no longer active.
+        if (isRetryableTransactionError(error)) {
+            try {
+                const latest = await prisma.auction.findUnique({ where: { id: input.auctionId }, select: { status: true, endsAt: true } });
+                if (!latest || latest.status !== AuctionStatus.active || now > latest.endsAt) {
+                    throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
+                }
+            } catch {
+                // If checking the latest state fails, fall through to rethrow
+            }
         }
 
-        await tx.auction.update({
-            where: { id: auction.id },
-            data: {
-                currentBid: input.amount,
-                leadingBidId: bid.id,
-                leadingPlayerId: input.playerId ?? null,
-            },
-        });
-
-        return {
-            bid,
-            currentBid: input.amount,
-            wallet: updatedWallet,
-        };
-    });
+        throw error;
+    }
 }
-
 export async function createListing(input: CreateListingInput) {
     const now = input.now ?? new Date();
     const endsAt = new Date(now.getTime() + input.durationMinutes * 60 * 1000);
@@ -606,105 +623,119 @@ export async function createListing(input: CreateListingInput) {
  */
 export async function executeBuyNow(input: { auctionId: string; bidderName: string; playerId?: string; isPlayer?: boolean }) {
     const now = new Date();
-
-    await withSerializableTransaction(async (tx) => {
-        const auction = await tx.auction.findUnique({
-            where: { id: input.auctionId },
-            include: {
-                reservations: {
-                    where: { status: BidReservationStatus.active },
-                    orderBy: { createdAt: "desc" },
-                    take: 1,
+    try {
+        await withSerializableTransaction(async (tx) => {
+            const auction = await tx.auction.findUnique({
+                where: { id: input.auctionId },
+                include: {
+                    reservations: {
+                        where: { status: BidReservationStatus.active },
+                        orderBy: { createdAt: "desc" },
+                        take: 1,
+                    },
                 },
-            },
-        });
-
-        if (!auction || !auction.buyNow) {
-            throw new AuctionLifecycleError("No buy-now price set", 400, "no_buy_now");
-        }
-        if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
-            throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
-        }
-        if (auction.buyNow <= auction.currentBid) {
-            throw new AuctionLifecycleError("Buy-now price already exceeded by current bid", 400, "buy_now_exceeded");
-        }
-        // Prevent the host from buying out their own listing
-        if (input.isPlayer && input.playerId && auction.listedBy === input.playerId) {
-            throw new AuctionLifecycleError("You cannot buy your own listing", 403, "self_buy_forbidden");
-        }
-        // Prevent an NPC host from buy-now'ing their own NPC-hosted listing
-        if (!input.isPlayer && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
-            throw new AuctionLifecycleError("NPCs cannot buy their own listing", 403, "self_buy_forbidden");
-        }
-
-        const isNPCBuyer = !input.isPlayer;
-
-        if (input.isPlayer && input.playerId) {
-            const buyer = await tx.player.findUnique({ where: { id: input.playerId } });
-            if (!buyer) {
-                throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
-            }
-            if (buyer.wallet < auction.buyNow) {
-                throw new AuctionLifecycleError("Insufficient funds", 400, "insufficient_funds");
-            }
-        }
-
-        const activeReservation = auction.reservations[0] ?? null;
-        if (activeReservation) {
-            await releaseReservation(tx, activeReservation, now, BidReservationStatus.released, "outbid_by_buy_now");
-        }
-
-        if (auction.leadingBidId) {
-            await tx.bid.update({
-                where: { id: auction.leadingBidId },
-                data: { supersededAt: now },
-            });
-        }
-
-        const bid = await tx.bid.create({
-            data: {
-                auctionId: auction.id,
-                bidderName: input.bidderName,
-                amount: auction.buyNow,
-                isNPC: isNPCBuyer,
-                playerId: input.playerId ?? null,
-                placedAt: now,
-            },
-        });
-
-        if (input.isPlayer && input.playerId) {
-            // Deduct from player wallet; settlement will transfer to seller
-            await tx.player.update({
-                where: { id: input.playerId },
-                data: { wallet: { decrement: auction.buyNow } },
             });
 
-            await tx.bidReservation.create({
+            if (!auction || !auction.buyNow) {
+                throw new AuctionLifecycleError("No buy-now price set", 400, "no_buy_now");
+            }
+            if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
+                throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
+            }
+            if (auction.buyNow <= auction.currentBid) {
+                throw new AuctionLifecycleError("Buy-now price already exceeded by current bid", 400, "buy_now_exceeded");
+            }
+            // Prevent the host from buying out their own listing
+            if (input.isPlayer && input.playerId && auction.listedBy === input.playerId) {
+                throw new AuctionLifecycleError("You cannot buy your own listing", 403, "self_buy_forbidden");
+            }
+            // Prevent an NPC host from buy-now'ing their own NPC-hosted listing
+            if (!input.isPlayer && auction.hostIsNPC && auction.hostName && auction.hostName === input.bidderName) {
+                throw new AuctionLifecycleError("NPCs cannot buy their own listing", 403, "self_buy_forbidden");
+            }
+
+            const isNPCBuyer = !input.isPlayer;
+
+            if (input.isPlayer && input.playerId) {
+                const buyer = await tx.player.findUnique({ where: { id: input.playerId } });
+                if (!buyer) {
+                    throw new AuctionLifecycleError("Player not found", 404, "player_not_found");
+                }
+                if (buyer.wallet < auction.buyNow) {
+                    throw new AuctionLifecycleError("Insufficient funds", 400, "insufficient_funds");
+                }
+            }
+
+            const activeReservation = auction.reservations[0] ?? null;
+            if (activeReservation) {
+                await releaseReservation(tx, activeReservation, now, BidReservationStatus.released, "outbid_by_buy_now");
+            }
+
+            if (auction.leadingBidId) {
+                await tx.bid.update({
+                    where: { id: auction.leadingBidId },
+                    data: { supersededAt: now },
+                });
+            }
+
+            const bid = await tx.bid.create({
                 data: {
                     auctionId: auction.id,
-                    playerId: input.playerId,
-                    bidId: bid.id,
+                    bidderName: input.bidderName,
                     amount: auction.buyNow,
-                    status: BidReservationStatus.active,
-                    expiresAt: now,
-                    reason: "buy_now",
+                    isNPC: isNPCBuyer,
+                    playerId: input.playerId ?? null,
+                    placedAt: now,
                 },
             });
+
+            if (input.isPlayer && input.playerId) {
+                // Deduct from player wallet; settlement will transfer to seller
+                await tx.player.update({
+                    where: { id: input.playerId },
+                    data: { wallet: { decrement: auction.buyNow } },
+                });
+
+                await tx.bidReservation.create({
+                    data: {
+                        auctionId: auction.id,
+                        playerId: input.playerId,
+                        bidId: bid.id,
+                        amount: auction.buyNow,
+                        status: BidReservationStatus.active,
+                        expiresAt: now,
+                        reason: "buy_now",
+                    },
+                });
+            }
+
+            // Force auction into resolving state immediately
+            await tx.auction.update({
+                where: { id: auction.id },
+                data: {
+                    currentBid: auction.buyNow,
+                    leadingBidId: bid.id,
+                    leadingPlayerId: input.playerId ?? null,
+                    endsAt: now,
+                    status: AuctionStatus.resolving,
+                    resolvingAt: now,
+                },
+            });
+        });
+    } catch (error) {
+        if (isRetryableTransactionError(error)) {
+            try {
+                const latest = await prisma.auction.findUnique({ where: { id: input.auctionId }, select: { status: true, endsAt: true } });
+                if (!latest || latest.status !== AuctionStatus.active || now > latest.endsAt) {
+                    throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
+                }
+            } catch {
+                // ignore and rethrow original
+            }
         }
 
-        // Force auction into resolving state immediately
-        await tx.auction.update({
-            where: { id: auction.id },
-            data: {
-                currentBid: auction.buyNow,
-                leadingBidId: bid.id,
-                leadingPlayerId: input.playerId ?? null,
-                endsAt: now,
-                status: AuctionStatus.resolving,
-                resolvingAt: now,
-            },
-        });
-    });
+        throw error;
+    }
 
     await settleClaimedAuction(input.auctionId, now);
 }
