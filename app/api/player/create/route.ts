@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
+import { adminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
         const body = await request.json().catch(() => ({}));
         const providedId = body?.id;
         const providedUsername = typeof body?.username === "string" ? body.username.trim() : undefined;
+        const isGuest = body?.isGuest === true;
 
         const id = user?.id ?? providedId;
         if (!id) {
@@ -23,16 +25,35 @@ export async function POST(request: Request) {
             return NextResponse.json({ ok: false, error: "Username is required" }, { status: 400 });
         }
 
-        if (providedUsername.length < 3 || providedUsername.length > 30) {
+        // Guest usernames are auto-generated (e.g. "Guest_1234") — skip length check
+        if (!isGuest && (providedUsername.length < 3 || providedUsername.length > 30)) {
             return NextResponse.json({ ok: false, error: "Username must be 3-30 characters" }, { status: 400 });
         }
+
+        const guestExpiresAt = isGuest ? new Date(Date.now() + 24 * 60 * 60 * 1000) : undefined;
 
         try {
             const player = await prisma.player.upsert({
                 where: { id },
                 update: { username: providedUsername },
-                create: { id, username: providedUsername, wallet: 100, isDiving: false },
+                create: {
+                    id,
+                    username: providedUsername,
+                    wallet: isGuest ? 1000 : 100,
+                    isDiving: false,
+                    isGuest,
+                    guestExpiresAt,
+                },
             });
+
+            // Mirror the chosen username into Supabase Auth user metadata
+            try {
+                await adminClient.auth.admin.updateUserById(id, {
+                    user_metadata: { display_name: providedUsername },
+                });
+            } catch (err) {
+                console.error("Failed to update auth user metadata:", err);
+            }
 
             return NextResponse.json({ ok: true, player });
         } catch (err: unknown) {

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AuthShell from "@/components/auth/AuthShell";
 
 export default function RegisterPage() {
     const [email, setEmail] = useState("");
@@ -11,7 +11,7 @@ export default function RegisterPage() {
     const [username, setUsername] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
+    const [registered, setRegistered] = useState(false);
     const supabase = createClient();
 
     async function handleRegister() {
@@ -22,9 +22,9 @@ export default function RegisterPage() {
             setLoading(false);
             return;
         }
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${siteUrl}/auth/callback` } });
         if (error) {
-            // Soften overly verbose or noisy password errors from Supabase
             let msg = error.message || "An error occurred";
             if (/Password should contain/i.test(msg)) {
                 msg = "Password must include at least one lowercase letter, one uppercase letter, one number, and one symbol.";
@@ -40,35 +40,87 @@ export default function RegisterPage() {
                 body: JSON.stringify({ id: data.user.id, username: username.trim() }),
             });
             const result = await res.json();
-            console.log("Player create result:", result);
             if (!result.ok) {
                 setError(result.error || "Failed to create player");
                 setLoading(false);
                 return;
             }
         }
-        // Force a full-page navigation so the server receives the updated
-        window.location.href = "/dashboard";
+        setRegistered(true);
+        setLoading(false);
     }
 
     return (
-        <main className="min-h-screen flex items-center justify-center">
-            <div className="flex flex-col gap-4 w-full max-w-sm p-8">
-                <h1 className="text-2xl font-bold">Going Once</h1>
-                <input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="border p-2 rounded" />
-                <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="border p-2 rounded" />
-                <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="border p-2 rounded" />
-                {error && <p className="text-red-500 text-sm">{error}</p>}
-                <button onClick={handleRegister} disabled={loading} className="bg-black text-white p-2 rounded">
-                    {loading ? "Creating account..." : "Register"}
-                </button>
-                <p className="text-sm text-center">
-                    Have an account?{" "}
-                    <Link href="/auth/login" className="underline">
-                        Log in
+        <AuthShell>
+            {registered ? (
+                <div className="text-center flex flex-col gap-4">
+                    <div className="text-3xl">📬</div>
+                    <div>
+                        <h2 className="text-xl font-bold mb-2" style={{ color: "#f0f0f8" }}>
+                            Check your email
+                        </h2>
+                        <p className="text-sm leading-relaxed" style={{ color: "#8a8a9a" }}>
+                            We sent a verification link to <strong style={{ color: "#c4c4d4" }}>{email}</strong>. Click it to activate your account, then log
+                            in.
+                        </p>
+                    </div>
+                    <Link
+                        href="/auth/login"
+                        className="w-full py-2.5 rounded-lg font-semibold text-sm text-center mt-2 transition-all"
+                        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#e8e8f0", display: "block" }}
+                    >
+                        Back to Log In
                     </Link>
-                </p>
-            </div>
-        </main>
+                </div>
+            ) : (
+                <>
+                    <div>
+                        <Link href="/auth/login" className="text-xs mb-3 flex items-center gap-1" style={{ color: "#666678" }}>
+                            ← Back
+                        </Link>
+                        <h2 className="text-xl font-bold" style={{ color: "#f0f0f8" }}>
+                            Create Account
+                        </h2>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                        <input
+                            placeholder="Username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8f0" }}
+                        />
+                        <input
+                            type="email"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8f0" }}
+                        />
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8f0" }}
+                        />
+                        {error && <p className="text-red-400 text-xs">{error}</p>}
+                        <button
+                            onClick={handleRegister}
+                            disabled={loading}
+                            className="w-full py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50"
+                            style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", color: "#e8e8f0" }}
+                        >
+                            {loading ? "Creating account…" : "Create Account"}
+                        </button>
+                        <Link href="/auth/login" className="text-xs text-center" style={{ color: "#666678" }}>
+                            Already have an account? Log in
+                        </Link>
+                    </div>
+                </>
+            )}
+        </AuthShell>
     );
 }

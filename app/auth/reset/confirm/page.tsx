@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import AuthShell from "@/components/auth/AuthShell";
 
 export default function ResetPasswordConfirmPage() {
     const supabase = createClient();
@@ -83,44 +84,55 @@ export default function ResetPasswordConfirmPage() {
     }
 
     return (
-        <main className="min-h-screen flex items-center justify-center">
-            <div className="flex w-full max-w-sm flex-col gap-4 p-8">
-                <h1 className="text-2xl font-bold">Choose a new password</h1>
-                {!ready ? (
-                    <>
-                        <p className="text-sm text-neutral-600">Open this page from the reset link in your email so we can verify your recovery session.</p>
-                        <p className="text-sm text-center">
-                            <Link href="/auth/reset" className="underline">
-                                Request another reset email
-                            </Link>
+        <AuthShell>
+            <h1 className="text-xl font-bold" style={{ color: "#f0f0f8" }}>
+                Choose a new password
+            </h1>
+            {!ready ? (
+                <>
+                    <p className="text-sm" style={{ color: "#8a8a9a" }}>
+                        Open this page from the reset link in your email so we can verify your recovery session.
+                    </p>
+                    <Link href="/auth/reset" className="text-xs text-center" style={{ color: "#666678" }}>
+                        Request another reset email
+                    </Link>
+                </>
+            ) : (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+                    <input
+                        type="password"
+                        placeholder="New password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8f0" }}
+                        required
+                    />
+                    <input
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8e8f0" }}
+                        required
+                    />
+                    {error && <p className="text-red-400 text-xs">{error}</p>}
+                    {success && (
+                        <p className="text-xs" style={{ color: "#6dbf6d" }}>
+                            {success}
                         </p>
-                    </>
-                ) : (
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                        <input
-                            type="password"
-                            placeholder="New password"
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            className="border p-2 rounded"
-                            required
-                        />
-                        <input
-                            type="password"
-                            placeholder="Confirm new password"
-                            value={confirmPassword}
-                            onChange={(event) => setConfirmPassword(event.target.value)}
-                            className="border p-2 rounded"
-                            required
-                        />
-                        {error && <p className="text-sm text-red-500">{error}</p>}
-                        {success && <p className="text-sm text-green-700">{success}</p>}
-                        <button type="submit" disabled={loading} className="bg-black text-white p-2 rounded">
-                            {loading ? "Updating..." : "Set new password"}
-                        </button>
-                    </form>
-                )}
-            </div>
-        </main>
+                    )}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50"
+                        style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.18)", color: "#e8e8f0" }}
+                    >
+                        {loading ? "Updating…" : "Set new password"}
+                    </button>
+                </form>
+            )}
+        </AuthShell>
     );
 }

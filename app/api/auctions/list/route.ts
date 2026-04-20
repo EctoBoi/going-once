@@ -10,7 +10,8 @@ export async function GET() {
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 
-    await reconcileAuctionLifecycle();
+    // Fire reconciliation in background — don't block the list response
+    reconcileAuctionLifecycle().catch(() => {});
 
     const auctions = await prisma.auction.findMany({
         where: { status: "active" },

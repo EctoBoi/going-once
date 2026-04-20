@@ -88,6 +88,8 @@ model Player {
   wallet           Float            @default(100)
   isDiving         Boolean          @default(false)
   diveFinishesAt   DateTime?
+  isGuest          Boolean          @default(false)
+  guestExpiresAt   DateTime?
   inventory        PlayerItem[]
   bids             Bid[]
   reservations     BidReservation[]
