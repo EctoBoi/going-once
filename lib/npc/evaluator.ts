@@ -5,7 +5,7 @@ import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AG
 
 const NPC_EVALUATION_KEY = "npc_evaluation";
 const DEFAULT_NPC_EVALUATION_LEASE_MS = 12_000;
-const NPC_SCHEDULED_BID_ATTEMPTS = 3;
+const NPC_SCHEDULED_BID_ATTEMPTS = 6;
 
 function isStatementTimeoutError(error: unknown) {
     const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
@@ -146,11 +146,6 @@ export async function evaluateNPCBids() {
     }
 
     for (const auction of activeAuctions) {
-        const probability = calculateBidProbability(auction.currentBid, auction.item.internalValue, auction.endsAt, auction.createdAt);
-
-        const roll = Math.random();
-        if (roll > probability) continue;
-
         // Pick a persona that hasn't already bid on this auction
         const alreadyBidPersonas = npcBidsByAuction.get(auction.id) ?? new Set<string>();
         const availablePersonas = personas.filter(
@@ -159,48 +154,62 @@ export async function evaluateNPCBids() {
         if (availablePersonas.length === 0) continue; // All personas already bid — skip
 
         const shuffledPersonas = [...availablePersonas].sort(() => Math.random() - 0.5);
-        const persona = shuffledPersonas[0];
 
-        // Buy-now opportunity: only for player-created auctions with a buyNow price set
-        if (ENABLE_NPC_BUY_NOW && auction.playerItemId && auction.buyNow !== null && auction.buyNow !== undefined && auction.buyNow > auction.currentBid) {
-            const effectiveChance = computeBuyNowChance({
-                buyNow: auction.buyNow,
-                internalValue: auction.item.internalValue,
-                aggression: persona.aggressionSeed,
-            });
-            const drawOutcome = Math.random() < effectiveChance;
-
-            if (drawOutcome) {
-                executeBuyNow({ auctionId: auction.id, bidderName: persona.name }).catch((err) => {
-                    if (!(err instanceof AuctionLifecycleError)) {
-                        console.error("NPC buy-now failed", { auctionId: auction.id, err });
-                    }
-                });
-                continue; // Don't also schedule a normal bid
-            }
-        }
-
+        // Perform the probability check per-persona rather than once per-auction.
+        // This preserves the overall bid volume but gives each persona an independent chance.
         let plannedCurrentBid = auction.currentBid;
-        const scheduledPersonas = shuffledPersonas.slice(0, Math.min(NPC_SCHEDULED_BID_ATTEMPTS, shuffledPersonas.length));
+        let attempts = 0;
+        let auctionEndedByBuyNow = false;
 
-        for (const scheduledPersona of scheduledPersonas) {
+        for (const scheduledPersona of shuffledPersonas) {
+            if (attempts >= NPC_SCHEDULED_BID_ATTEMPTS) break;
+
+            // Per-persona probability roll
+            const probability = calculateBidProbability(plannedCurrentBid, auction.item.internalValue, auction.endsAt, auction.createdAt);
+            const personaRoll = Math.random();
+            if (personaRoll > probability) continue;
+
+            // Buy-now opportunity per persona
+            if (ENABLE_NPC_BUY_NOW && auction.playerItemId && auction.buyNow !== null && auction.buyNow !== undefined && auction.buyNow > plannedCurrentBid) {
+                const effectiveChance = computeBuyNowChance({
+                    buyNow: auction.buyNow,
+                    internalValue: auction.item.internalValue,
+                    aggression: scheduledPersona.aggressionSeed,
+                });
+                const drawOutcome = Math.random() < effectiveChance;
+
+                if (drawOutcome) {
+                    executeBuyNow({ auctionId: auction.id, bidderName: scheduledPersona.name }).catch((err) => {
+                        if (!(err instanceof AuctionLifecycleError)) {
+                            console.error("NPC buy-now failed", { auctionId: auction.id, err });
+                        }
+                    });
+                    auctionEndedByBuyNow = true;
+                    break;
+                }
+            }
+
             const bidAmount = calculateNPCBidAmount(plannedCurrentBid, auction.item.internalValue, scheduledPersona.aggressionSeed);
 
-            // If the computed bid meets or exceeds buyNow, just execute buy-now to end the auction immediately
+            // If the computed bid meets or exceeds buyNow, execute buy-now to end the auction immediately
             if (auction.buyNow !== null && auction.buyNow !== undefined && bidAmount >= auction.buyNow && auction.buyNow > plannedCurrentBid) {
                 executeBuyNow({ auctionId: auction.id, bidderName: scheduledPersona.name }).catch((err) => {
                     if (!(err instanceof AuctionLifecycleError)) {
                         console.error("NPC buy-now (bid cap) failed", { auctionId: auction.id, err });
                     }
                 });
+                auctionEndedByBuyNow = true;
                 break;
             }
 
             plannedCurrentBid = Math.max(plannedCurrentBid, bidAmount);
+            attempts++;
             scheduleNPCBid(auction.id, scheduledPersona.name, bidAmount, (5 + Math.random() * 20) * 1000).catch((err) => {
                 console.error("NPC bid scheduling failed", { auctionId: auction.id, err });
             });
         }
+
+        if (auctionEndedByBuyNow) continue;
     }
 }
 
