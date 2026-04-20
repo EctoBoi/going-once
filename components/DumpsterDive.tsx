@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type DiveState = { status: "idle" } | { status: "diving"; diveFinishesAt: string } | { status: "complete"; awardedItem: { name: string } | null };
 
@@ -12,6 +12,10 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
     );
     const [timeLeft, setTimeLeft] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const onDiveCompleteCallback = useCallback(() => {
+        onDiveComplete?.();
+    }, [onDiveComplete]);
 
     // Countdown and auto-poll when diving
     useEffect(() => {
@@ -44,7 +48,7 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
                 const data = await res.json();
                 if (data.completed) {
                     setState({ status: "complete", awardedItem: data.awardedItem ?? null });
-                    onDiveComplete?.();
+                    onDiveCompleteCallback();
                 } else if (!data.isDiving) {
                     setState({ status: "idle" });
                 } else {
@@ -60,7 +64,7 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
                             const d2 = await r2.json();
                             if (d2.completed) {
                                 setState({ status: "complete", awardedItem: d2.awardedItem ?? null });
-                                onDiveComplete?.();
+                                onDiveCompleteCallback();
                             } else if (!d2.isDiving) {
                                 setState({ status: "idle" });
                             } else if (d2.diveFinishesAt) {
@@ -76,7 +80,7 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
             clearInterval(interval);
             clearTimeout(initT);
         };
-    }, [state]);
+    }, [state, onDiveCompleteCallback]);
 
     async function startDive() {
         setLoading(true);

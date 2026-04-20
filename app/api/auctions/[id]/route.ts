@@ -36,16 +36,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     if (!auction) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
+    // Safely map bids only when present on the returned auction object
+    let bidsOut;
+    if (includeBids && "bids" in auction && auction.bids) {
+        bidsOut = auction.bids.map((b) => ({ ...b, placedAt: b.placedAt.toISOString() }));
+    }
+
     return NextResponse.json({
         ok: true,
         auction: {
             ...auction,
             endsAt: auction.endsAt.toISOString(),
-            ...(includeBids
-                ? {
-                      bids: auction.bids.map((b) => ({ ...b, placedAt: b.placedAt.toISOString() })),
-                  }
-                : {}),
+            ...(bidsOut ? { bids: bidsOut } : {}),
         },
         playerWallet: player?.wallet ?? 0,
         isOwnListing: auction.listedBy === user.id,
