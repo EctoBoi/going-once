@@ -7,6 +7,8 @@ import { roundDownOnePlaceOver, formatMoney } from "@/lib/game/priceUtils";
 const TARGET_ACTIVE_SYSTEM_AUCTIONS = 12;
 const STALE_RESOLVING_TIMEOUT_MS = 60_000;
 const OPEN_AUCTION_STATUSES: AuctionStatus[] = [AuctionStatus.active, AuctionStatus.resolving];
+const TRANSACTION_MAX_WAIT_MS = 10_000;
+const TRANSACTION_TIMEOUT_MS = 20_000;
 
 export class AuctionLifecycleError extends Error {
     constructor(
@@ -58,6 +60,10 @@ function isRetryableTransactionError(error: unknown) {
         return true;
     }
 
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2028") {
+        return true;
+    }
+
     // Prisma may wrap driver errors in a DriverAdapterError whose `cause`
     // contains the original SQLSTATE code (e.g. '40001' for serialization failures).
     if (errWithCause?.cause?.originalCode === "40001" || errWithCause?.cause?.originalCode === 40001) {
@@ -100,6 +106,8 @@ async function withSerializableTransaction<T>(callback: (tx: Prisma.TransactionC
         try {
             return await prisma.$transaction(callback, {
                 isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+                maxWait: TRANSACTION_MAX_WAIT_MS,
+                timeout: TRANSACTION_TIMEOUT_MS,
             });
         } catch (error) {
             attempt += 1;
