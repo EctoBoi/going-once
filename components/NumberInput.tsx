@@ -30,7 +30,7 @@ export default function NumberInput({ value, onChange, min, step = 1, className 
 
     function inc() {
         const cur = parseVal(value);
-        const base = cur ?? (typeof min === "number" ? min : 0);
+        const base = cur ?? 0; //(typeof min === "number" ? min : 0);
         setNumber(clamp(base + step));
     }
 
