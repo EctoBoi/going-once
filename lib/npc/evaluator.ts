@@ -5,6 +5,7 @@ import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AG
 
 const NPC_EVALUATION_KEY = "npc_evaluation";
 const DEFAULT_NPC_EVALUATION_LEASE_MS = 12_000;
+const NPC_SCHEDULED_BID_ATTEMPTS = 3;
 
 function isStatementTimeoutError(error: unknown) {
     const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
@@ -155,7 +156,8 @@ export async function evaluateNPCBids() {
         const availablePersonas = personas.filter((p) => !alreadyBidPersonas.has(p.name));
         if (availablePersonas.length === 0) continue; // All personas already bid — skip
 
-        const persona = availablePersonas[Math.floor(Math.random() * availablePersonas.length)];
+        const shuffledPersonas = [...availablePersonas].sort(() => Math.random() - 0.5);
+        const persona = shuffledPersonas[0];
 
         // Buy-now opportunity: only for player-created auctions with a buyNow price set
         if (ENABLE_NPC_BUY_NOW && auction.playerItemId && auction.buyNow !== null && auction.buyNow !== undefined && auction.buyNow > auction.currentBid) {
@@ -176,21 +178,27 @@ export async function evaluateNPCBids() {
             }
         }
 
-        const bidAmount = calculateNPCBidAmount(auction.currentBid, auction.item.internalValue, persona.aggressionSeed);
+        let plannedCurrentBid = auction.currentBid;
+        const scheduledPersonas = shuffledPersonas.slice(0, Math.min(NPC_SCHEDULED_BID_ATTEMPTS, shuffledPersonas.length));
 
-        // If the computed bid meets or exceeds buyNow, just execute buy-now to end the auction immediately
-        if (auction.buyNow !== null && auction.buyNow !== undefined && bidAmount >= auction.buyNow && auction.buyNow > auction.currentBid) {
-            executeBuyNow({ auctionId: auction.id, bidderName: persona.name }).catch((err) => {
-                if (!(err instanceof AuctionLifecycleError)) {
-                    console.error("NPC buy-now (bid cap) failed", { auctionId: auction.id, err });
-                }
+        for (const scheduledPersona of scheduledPersonas) {
+            const bidAmount = calculateNPCBidAmount(plannedCurrentBid, auction.item.internalValue, scheduledPersona.aggressionSeed);
+
+            // If the computed bid meets or exceeds buyNow, just execute buy-now to end the auction immediately
+            if (auction.buyNow !== null && auction.buyNow !== undefined && bidAmount >= auction.buyNow && auction.buyNow > plannedCurrentBid) {
+                executeBuyNow({ auctionId: auction.id, bidderName: scheduledPersona.name }).catch((err) => {
+                    if (!(err instanceof AuctionLifecycleError)) {
+                        console.error("NPC buy-now (bid cap) failed", { auctionId: auction.id, err });
+                    }
+                });
+                break;
+            }
+
+            plannedCurrentBid = Math.max(plannedCurrentBid, bidAmount);
+            scheduleNPCBid(auction.id, scheduledPersona.name, bidAmount, (5 + Math.random() * 20) * 1000).catch((err) => {
+                console.error("NPC bid scheduling failed", { auctionId: auction.id, err });
             });
-            continue;
         }
-
-        scheduleNPCBid(auction.id, persona.name, bidAmount, (5 + Math.random() * 20) * 1000).catch((err) => {
-            console.error("NPC bid scheduling failed", { auctionId: auction.id, err });
-        });
     }
 }
 

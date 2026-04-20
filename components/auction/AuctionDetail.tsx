@@ -375,7 +375,6 @@ export default function AuctionDetail({
                     </div>
                 )}
             </div>
-            <MarketEvaluator />
         </main>
     );
 }

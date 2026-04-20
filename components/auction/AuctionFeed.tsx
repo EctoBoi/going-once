@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import AuctionCard from "./AuctionCard";
-import MarketEvaluator from "@/components/MarketEvaluator";
 import { formatMoney } from "@/lib/game/priceUtils";
 
 type Auction = {
@@ -246,7 +245,6 @@ export default function AuctionFeed({
                     />
                 ))}
             </div>
-            <MarketEvaluator />
         </div>
     );
 }
