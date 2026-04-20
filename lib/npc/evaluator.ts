@@ -5,7 +5,7 @@ import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AG
 
 const NPC_EVALUATION_KEY = "npc_evaluation";
 const DEFAULT_NPC_EVALUATION_LEASE_MS = 12_000;
-const NPC_SCHEDULED_BID_ATTEMPTS = 6;
+const NPC_SCHEDULED_BID_ATTEMPTS = 3;
 
 function isStatementTimeoutError(error: unknown) {
     const errWithCause = error as { message?: unknown; cause?: { originalCode?: string | number; message?: unknown } };
@@ -30,7 +30,7 @@ function isStatementTimeoutError(error: unknown) {
 
 function isExpectedScheduledBidError(error: unknown) {
     if (error instanceof AuctionLifecycleError) {
-        return error.code === "auction_not_active" || error.code === "bid_too_low";
+        return error.code === "auction_not_active" || error.code === "bid_too_low" || error.code === "self_bid_forbidden";
     }
 
     return isStatementTimeoutError(error);
@@ -153,7 +153,9 @@ export async function evaluateNPCBids() {
 
         // Pick a persona that hasn't already bid on this auction
         const alreadyBidPersonas = npcBidsByAuction.get(auction.id) ?? new Set<string>();
-        const availablePersonas = personas.filter((p) => !alreadyBidPersonas.has(p.name));
+        const availablePersonas = personas.filter(
+            (p) => !alreadyBidPersonas.has(p.name) && (!auction.hostIsNPC || !auction.hostName || p.name !== auction.hostName),
+        );
         if (availablePersonas.length === 0) continue; // All personas already bid — skip
 
         const shuffledPersonas = [...availablePersonas].sort(() => Math.random() - 0.5);

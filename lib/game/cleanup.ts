@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 const CLEANUP_KEY = "last_cleanup";
+const CLEANUP_BATCH_SIZE = 100;
 
 /**
  * Atomically checks whether this caller should run cleanup.
@@ -56,33 +57,48 @@ export async function cleanupStaleData(prisma: PrismaClient, cutoffMinutes = 20)
         status: { not: "active" as const },
     };
 
-    const [reservationsDeleted, , bidsDeleted, auctionsDeleted] = await prisma.$transaction([
-        // 1. Delete all BidReservations for stale auctions.
-        prisma.bidReservation.deleteMany({
-            where: { auction: staleAuctionFilter },
-        }),
+    let reservationsDeleted = 0;
+    let bidsDeleted = 0;
+    let auctionsDeleted = 0;
 
-        // 2. Nullify Auction.leadingBidId / winningBidId so the Bid FK is
-        //    released before we delete Bid rows.
-        prisma.auction.updateMany({
+    while (true) {
+        const staleAuctionIds = await prisma.auction.findMany({
             where: staleAuctionFilter,
-            data: { leadingBidId: null, winningBidId: null },
-        }),
+            select: { id: true },
+            orderBy: { createdAt: "asc" },
+            take: CLEANUP_BATCH_SIZE,
+        });
 
-        // 3. Delete Bids for stale auctions.
-        prisma.bid.deleteMany({
-            where: { auction: staleAuctionFilter },
-        }),
+        if (staleAuctionIds.length === 0) {
+            break;
+        }
 
-        // 4. Delete the stale Auctions themselves.
-        prisma.auction.deleteMany({
-            where: staleAuctionFilter,
-        }),
-    ]);
+        const auctionIds = staleAuctionIds.map((auction) => auction.id);
+
+        const [deletedReservations, , deletedBids, deletedAuctions] = await prisma.$transaction([
+            prisma.bidReservation.deleteMany({
+                where: { auctionId: { in: auctionIds } },
+            }),
+            prisma.auction.updateMany({
+                where: { id: { in: auctionIds } },
+                data: { leadingBidId: null, winningBidId: null },
+            }),
+            prisma.bid.deleteMany({
+                where: { auctionId: { in: auctionIds } },
+            }),
+            prisma.auction.deleteMany({
+                where: { id: { in: auctionIds } },
+            }),
+        ]);
+
+        reservationsDeleted += deletedReservations.count;
+        bidsDeleted += deletedBids.count;
+        auctionsDeleted += deletedAuctions.count;
+    }
 
     return {
-        reservationsDeleted: reservationsDeleted.count,
-        bidsDeleted: bidsDeleted.count,
-        auctionsDeleted: auctionsDeleted.count,
+        reservationsDeleted,
+        bidsDeleted,
+        auctionsDeleted,
     };
 }

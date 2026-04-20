@@ -9,6 +9,7 @@ const STALE_RESOLVING_TIMEOUT_MS = 60_000;
 const OPEN_AUCTION_STATUSES: AuctionStatus[] = [AuctionStatus.active, AuctionStatus.resolving];
 const TRANSACTION_MAX_WAIT_MS = 10_000;
 const TRANSACTION_TIMEOUT_MS = 20_000;
+const TRANSACTION_MAX_RETRIES = 8;
 
 export class AuctionLifecycleError extends Error {
     constructor(
@@ -99,7 +100,7 @@ function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function withSerializableTransaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>, maxRetries = 5): Promise<T> {
+async function withSerializableTransaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>, maxRetries = TRANSACTION_MAX_RETRIES): Promise<T> {
     let attempt = 0;
 
     while (true) {
