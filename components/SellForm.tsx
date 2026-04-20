@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { playerItemId: string; acquiredFor: number; onSuccess?: () => void }) {
-    const defaultMinBid = String(Math.round(acquiredFor + 1));
-    const defaultBuyNow = String(Math.round(acquiredFor * 2));
+    const defaultMinBid = String(Math.round(acquiredFor));
+    const defaultBuyNow = ""; //String(Math.round(acquiredFor * 2));
 
     const [minBid, setMinBid] = useState(defaultMinBid);
     const [buyNow, setBuyNow] = useState(defaultBuyNow);
