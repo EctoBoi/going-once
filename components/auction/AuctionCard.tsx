@@ -71,7 +71,13 @@ export default function AuctionCard({
     else if (isLeading) borderCls = "border-2 border-yellow-500";
     else if (outbid) borderCls = "border-2 border-red-500";
 
-    const cls = `${borderCls} group rounded-2xl p-4 hover:shadow-md transition-shadow cursor-pointer relative bg-stone-950/80 ${isOwn ? "bg-gray-900" : ""}`;
+    // Ring color should follow the border color so the hover effect matches
+    let ringCls = "hover:ring-stone-200/70";
+    if (isOwn) ringCls = "hover:ring-blue-400/30";
+    else if (isLeading) ringCls = "hover:ring-yellow-500/30";
+    else if (outbid) ringCls = "hover:ring-red-500/30";
+
+    const cls = `${borderCls} group rounded-2xl p-4 hover:shadow-md hover:ring-4 ${ringCls} hover:ring-inset transition-all duration-150 cursor-pointer relative bg-stone-950/80 ${isOwn ? "bg-gray-900" : ""}`;
 
     const hostLabel = auction.hostName ?? (auction.hostIsNPC ? "NPC" : "Unknown");
 
