@@ -100,7 +100,7 @@ model Player {
 model PlayerItem {
   id          String    @id @default(cuid())
   playerId    String
-  player      Player    @relation(fields: [playerId], references: [id])
+  player      Player    @relation(fields: [playerId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   itemId      String
   item        Item      @relation(fields: [itemId], references: [id])
   acquiredFor Float

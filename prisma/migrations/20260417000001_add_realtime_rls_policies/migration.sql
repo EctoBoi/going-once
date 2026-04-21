@@ -2,38 +2,48 @@
 -- so the realtime service can deliver row payloads to authenticated clients.
 -- Without these policies the realtime worker returns error 401 / empty records.
 
--- Auction: all active auctions are public game data
-ALTER TABLE public."Auction" ENABLE ROW LEVEL SECURITY;
+DO $migration$
+BEGIN
+  IF to_regnamespace('auth') IS NOT NULL AND to_regrole('authenticated') IS NOT NULL THEN
+    -- Auction: all active auctions are public game data
+    ALTER TABLE public."Auction" ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "realtime_select_auction"
-    ON public."Auction"
-    FOR SELECT
-    TO authenticated
-    USING (true);
+    DROP POLICY IF EXISTS "realtime_select_auction" ON public."Auction";
+    CREATE POLICY "realtime_select_auction"
+        ON public."Auction"
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
--- Bid: bids are public game data
-ALTER TABLE public."Bid" ENABLE ROW LEVEL SECURITY;
+    -- Bid: bids are public game data
+    ALTER TABLE public."Bid" ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "realtime_select_bid"
-    ON public."Bid"
-    FOR SELECT
-    TO authenticated
-    USING (true);
+    DROP POLICY IF EXISTS "realtime_select_bid" ON public."Bid";
+    CREATE POLICY "realtime_select_bid"
+        ON public."Bid"
+        FOR SELECT
+        TO authenticated
+        USING (true);
 
--- Player: only the owning player may read their own row via realtime
-ALTER TABLE public."Player" ENABLE ROW LEVEL SECURITY;
+    -- Player: only the owning player may read their own row via realtime
+    ALTER TABLE public."Player" ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "realtime_select_own_player"
-    ON public."Player"
-    FOR SELECT
-    TO authenticated
-    USING (id = auth.uid()::text);
+    DROP POLICY IF EXISTS "realtime_select_own_player" ON public."Player";
+    CREATE POLICY "realtime_select_own_player"
+        ON public."Player"
+        FOR SELECT
+        TO authenticated
+        USING (id = auth.uid()::text);
 
--- PlayerItem: only the owning player may read their own items via realtime
-ALTER TABLE public."PlayerItem" ENABLE ROW LEVEL SECURITY;
+    -- PlayerItem: only the owning player may read their own items via realtime
+    ALTER TABLE public."PlayerItem" ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "realtime_select_own_player_item"
-    ON public."PlayerItem"
-    FOR SELECT
-    TO authenticated
-    USING ("playerId" = auth.uid()::text);
+    DROP POLICY IF EXISTS "realtime_select_own_player_item" ON public."PlayerItem";
+    CREATE POLICY "realtime_select_own_player_item"
+        ON public."PlayerItem"
+        FOR SELECT
+        TO authenticated
+        USING ("playerId" = auth.uid()::text);
+  END IF;
+END
+$migration$;

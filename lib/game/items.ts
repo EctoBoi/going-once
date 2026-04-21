@@ -9,7 +9,7 @@ export type ItemTemplate = {
 
 export const ITEM_TEMPLATES: ItemTemplate[] = [
     // Electronics
-    { name: "Broken Laptop", description: "Boots to Philosophy", category: "electronics", internalValue: 45 },
+    { name: "Broken Laptop", description: "Fully Functional Paperweight", category: "electronics", internalValue: 45 },
     { name: "Old CRT Monitor", description: "Weighs More Than Regrets", category: "electronics", internalValue: 30 },
     { name: "Vintage Radio", description: "Picks Up One Station", category: "electronics", internalValue: 65 },
     { name: "Tangled Headphones", description: "Knot Included", category: "electronics", internalValue: 12 },
