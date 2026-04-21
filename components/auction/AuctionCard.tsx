@@ -114,7 +114,7 @@ export default function AuctionCard({
                     <p className={`font-mono font-bold ${timeLeft === "Ended" ? "text-red-500" : ""}`}>{timeLeft}</p>
                 </div>
             </div>
-            {auction.buyNow != null && !isOwn && onBuyNow && timeLeft !== "Ended" && (
+            {!isOwn && onBuyNow && timeLeft !== "Ended" && (
                 <button
                     type="button"
                     onClick={(e) => {
