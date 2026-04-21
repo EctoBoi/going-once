@@ -321,38 +321,67 @@ export default function AuctionDetail({
         }
 
         setLoading(true);
-        const res = await fetch(`/api/auctions/${auction.id}/bid`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount }),
-        });
-        const data = await res.json();
+        const optimisticId = `optimistic-${Date.now()}`;
 
-        if (!data.ok) {
-            setError(data.error);
-            setLoading(false);
-            return;
-        }
-
-        setCurrentBid(data.currentBid);
-        setLeadingPlayerId(currentPlayerId ?? null);
-        setWallet(data.wallet);
-        onWalletUpdate?.(data.wallet);
-        // Optimistically add bid to history
+        // Add optimistic placeholder immediately so UI feels responsive
         setBids((prev) => [
             {
-                id: `optimistic-${Date.now()}`,
+                id: optimisticId,
                 bidderName: currentPlayerName ?? "You",
-                amount: data.currentBid,
+                amount: Math.max(minNextBid, parseFloat(bidAmount) || minNextBid),
                 isNPC: false,
                 playerId: currentPlayerId ?? null,
                 placedAt: new Date().toISOString(),
             },
             ...prev.filter((b) => !b.id.startsWith("optimistic-")),
         ]);
-        setBidAmount("");
-        toast.success(`Bid placed: $${formatMoney(data.currentBid)}`);
-        setLoading(false);
+
+        try {
+            const res = await fetch(`/api/auctions/${auction.id}/bid`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount }),
+            });
+            const data = await res.json();
+
+            if (!data.ok) {
+                setError(data.error);
+                // remove optimistic placeholder on failure
+                setBids((prev) => prev.filter((b) => !b.id.startsWith("optimistic-")));
+                setLoading(false);
+                return;
+            }
+
+            const serverBid = data.bid;
+
+            setCurrentBid(data.currentBid);
+            setLeadingPlayerId(currentPlayerId ?? null);
+            setWallet(data.wallet);
+            onWalletUpdate?.(data.wallet);
+
+            // Replace/remove optimistic placeholder and ensure the real bid is present
+            setBids((prev) => {
+                // If the server bid is already present (e.g. realtime INSERT arrived earlier),
+                // just remove optimistic placeholders.
+                if (prev.some((b) => b.id === serverBid.id)) {
+                    return prev.filter((b) => !b.id.startsWith("optimistic-"));
+                }
+
+                // Otherwise prepend the server bid and remove optimistic placeholders.
+                return [
+                    {
+                        ...serverBid,
+                        placedAt: typeof serverBid.placedAt === "string" ? serverBid.placedAt : new Date().toISOString(),
+                    },
+                    ...prev.filter((b) => !b.id.startsWith("optimistic-")),
+                ];
+            });
+
+            setBidAmount("");
+            toast.success(`Bid placed: $${formatMoney(data.currentBid)}`);
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function handleBuyNow() {
