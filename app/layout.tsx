@@ -5,7 +5,7 @@ import CleanupClient from "@/components/CleanupClient";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import NavHeader from "@/components/NavHeader";
-import { Toaster } from "react-hot-toast";
+import ResponsiveToaster from "@/components/ResponsiveToaster";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -47,7 +47,7 @@ export default async function RootLayout({
                 <NavHeader username={username} />
                 {children}
                 <CleanupClient />
-                <Toaster position="bottom-right" toastOptions={{ duration: 7000 }} />
+                <ResponsiveToaster />
             </body>
         </html>
     );

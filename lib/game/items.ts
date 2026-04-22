@@ -70,7 +70,7 @@ export const ITEM_TEMPLATES: ItemTemplate[] = [
     { name: "Vintage Pocket Knife", description: "Blade Stiff, Opinions Firm", category: "tools", internalValue: 48 },
     { name: "Level Tool Set", description: "Neither, Actually", category: "tools", internalValue: 20 },
     { name: "Handcarved Canoe Paddle", description: "Signed?", category: "tools", internalValue: 46000 },
-    { name: "Pedal-Powered Lawnmower", description: "Vintage Fitness", category: "tools", internalValue: 79000 },
+    { name: "Pedal-Powered Lawnmower", description: "Vintage Fitness", category: "tools", internalValue: 19000 },
 
     // Misc
     { name: "Box of Old VHS Tapes", description: "Be Kind, Rewind", category: "misc", internalValue: 8 },

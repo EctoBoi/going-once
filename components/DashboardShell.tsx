@@ -482,7 +482,7 @@ export default function DashboardShell({
             <MarketEvaluator />
 
             {/* Left column — Player (desktop) */}
-            <aside className="hidden md:flex w-72 shrink-0 border-r flex flex-col overflow-y-auto bg-gray-900 text-gray-100">
+            <aside className="hidden lg:flex w-72 shrink-0 border-r flex flex-col overflow-y-auto bg-gray-900 text-gray-100">
                 {/* Wallet */}
                 <div className="px-4 py-3 border-b border-gray-800">
                     <p className="text-xs text-gray-300">Wallet</p>
