@@ -29,3 +29,23 @@ export async function POST() {
 
     return NextResponse.json({ ok: true, diveFinishesAt: diveFinishesAt.toISOString() });
 }
+
+export async function DELETE() {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+
+    const player = await prisma.player.findUnique({ where: { id: user.id } });
+    if (!player) return NextResponse.json({ ok: false, error: "Player not found" }, { status: 404 });
+
+    if (!player.isDiving) {
+        return NextResponse.json({ ok: true, isDiving: false, cancelled: false });
+    }
+
+    // Cancel the dive early with no reward
+    await prisma.player.update({ where: { id: user.id }, data: { isDiving: false, diveFinishesAt: null } });
+
+    return NextResponse.json({ ok: true, cancelled: true });
+}

@@ -95,6 +95,18 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
         }
     }
 
+    async function cancelDive() {
+        setLoading(true);
+        try {
+            const res = await fetch("/api/player/dumpster-dive", { method: "DELETE" });
+            await res.json();
+            // Regardless of server message, stop diving locally and do not award anything
+            setState({ status: "idle" });
+        } finally {
+            setLoading(false);
+        }
+    }
+
     function dismiss() {
         setState({ status: "idle" });
     }
@@ -123,6 +135,15 @@ export default function DumpsterDive({ initialDiveFinishesAt, onDiveComplete }: 
                 <p className="font-semibold text-yellow-800">🗑️ Searching…</p>
                 <p className="text-sm text-yellow-700 mt-1">{timeLeft ? `${timeLeft} remaining` : "Almost done…"}</p>
                 <p className="text-xs text-yellow-600 mt-2 italic">You cannot bid or list while searching.</p>
+                <div className="mt-3 flex gap-2">
+                    <button
+                        onClick={cancelDive}
+                        disabled={loading}
+                        className="text-sm border px-3 py-1 rounded bg-gray-700 hover:bg-gray-800 disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                </div>
             </div>
         );
     }

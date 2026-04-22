@@ -9,7 +9,7 @@ import NumberInput from "@/components/NumberInput";
 import { createClient } from "@/lib/supabase/client";
 import { extractBroadcastChange } from "@/lib/supabase/realtime";
 import { formatItemLabel } from "@/lib/game/formatItemLabel";
-import { formatMoney } from "@/lib/game/priceUtils";
+import { formatMoney, roundUpOnePlaceOver } from "@/lib/game/priceUtils";
 
 type Bid = {
     id: string;
@@ -305,14 +305,14 @@ export default function AuctionDetail({
         };
     }, [currentPlayerId, onWalletUpdate]);
 
-    const minNextBid = currentBid + 1;
+    const minNextBid = roundUpOnePlaceOver(currentBid * 1.1);
 
     async function handleBid() {
         setError(null);
         const amount = parseFloat(bidAmount);
 
         if (isNaN(amount) || amount < minNextBid) {
-            setError(`Minimum bid is $${formatMoney(minNextBid)}`);
+            setError(`Minimum bid is $${formatMoney(minNextBid)} (10% over current bid)`);
             return;
         }
         if (amount > wallet) {

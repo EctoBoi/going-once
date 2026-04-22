@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AuctionLifecycleError, executeBuyNow, placeBid } from "@/lib/game/auctionLifecycle";
-import { roundDownOnePlaceOver } from "@/lib/game/priceUtils";
+import { roundUpOnePlaceOver } from "@/lib/game/priceUtils";
 import { ENABLE_NPC_BUY_NOW, NPC_BASE_LOW_CHANCE, NPC_BUY_BREAKPOINT, NPC_MAX_AGGRESSION_BOOST, NPC_MAX_OVER } from "@/lib/npc/constants";
 
 const NPC_EVALUATION_KEY = "npc_evaluation";
@@ -111,12 +111,14 @@ export function computeBuyNowChance({ buyNow, internalValue, aggression }: { buy
 
 // How much an NPC will bid above current — influenced by aggression
 function calculateNPCBidAmount(currentBid: number, internalValue: number, aggressionSeed: number): number {
-    // Base increment is $1-5
-    const baseIncrement = 1 + Math.random() * 4;
+    // Minimum required is 10% over the current bid
+    const minRequired = currentBid * 1.1;
     // Aggressive NPCs occasionally bid well above value
     const aggressionMultiplier = Math.random() < aggressionSeed ? 1 + Math.random() * 0.5 : 1;
-    const raw = (currentBid + baseIncrement) * aggressionMultiplier;
-    return roundDownOnePlaceOver(raw);
+    const raw = minRequired * aggressionMultiplier;
+    let bid = roundUpOnePlaceOver(raw);
+    if (raw < minRequired) bid = roundUpOnePlaceOver(minRequired);
+    return bid;
 }
 
 export async function evaluateNPCBids() {
@@ -228,7 +230,9 @@ async function scheduleNPCBid(auctionId: string, personaName: string, amount: nu
         });
 
         if (!auction || auction.status !== "active" || new Date() > auction.endsAt) return;
-        if (amount <= auction.currentBid) return;
+        // Enforce the 10% minimum increment on scheduled NPC bids as well
+        const minRequired = roundUpOnePlaceOver(auction.currentBid * 1.1);
+        if (amount < minRequired) return;
 
         await placeBid({
             auctionId,

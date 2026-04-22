@@ -1,5 +1,6 @@
 "use client";
 
+import { roundDownOnePlaceOver, roundUpOnePlaceOver } from "@/lib/game/priceUtils";
 import React from "react";
 
 type NumberInputProps = {
@@ -30,14 +31,14 @@ export default function NumberInput({ value, onChange, min, step = 1, className 
 
     function inc() {
         const cur = parseVal(value);
-        const base = cur ?? 0; //(typeof min === "number" ? min : 0);
-        setNumber(clamp(base + step));
+        const base = cur ?? (typeof cur === "number" ? cur : 0);
+        setNumber(clamp(roundUpOnePlaceOver(base * 1.05)));
     }
 
     function dec() {
         const cur = parseVal(value);
-        const base = cur ?? (typeof min === "number" ? min : 0);
-        setNumber(clamp(base - step));
+        const base = cur ?? (typeof cur === "number" ? cur : 0);
+        setNumber(clamp(roundDownOnePlaceOver(base * 0.95)));
     }
 
     return (

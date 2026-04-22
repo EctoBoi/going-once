@@ -8,6 +8,16 @@ export function roundDownOnePlaceOver(value: number): number {
     return Math.round(rounded * 100) / 100;
 }
 
+export function roundUpOnePlaceOver(value: number): number {
+    if (value <= 0) return 0;
+    const abs = Math.abs(value);
+    const exp = Math.floor(Math.log10(abs));
+    const digits = exp + 1;
+    const multiplier = Math.pow(10, digits - 2);
+    const rounded = Math.ceil(value / multiplier) * multiplier;
+    return Math.round(rounded * 100) / 100;
+}
+
 export default roundDownOnePlaceOver;
 
 export function formatMoney(value: number): string {

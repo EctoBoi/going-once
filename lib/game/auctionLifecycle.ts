@@ -2,7 +2,7 @@ import { AuctionStatus, BidReservationStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { NPC_PERSONAS } from "@/lib/game/npcPersonas";
-import { roundDownOnePlaceOver, formatMoney } from "@/lib/game/priceUtils";
+import { roundDownOnePlaceOver, formatMoney, roundUpOnePlaceOver } from "@/lib/game/priceUtils";
 
 const TARGET_ACTIVE_SYSTEM_AUCTIONS = 12;
 const STALE_RESOLVING_TIMEOUT_MS = 60_000;
@@ -484,8 +484,10 @@ export async function placeBid(input: PlaceBidInput) {
             if (auction.status !== AuctionStatus.active || now > auction.endsAt) {
                 throw new AuctionLifecycleError("Auction has ended", 400, "auction_not_active");
             }
-            if (input.amount <= auction.currentBid) {
-                throw new AuctionLifecycleError(`Bid must be higher than $${formatMoney(auction.currentBid)}`, 400, "bid_too_low");
+            // Require bids to be at least 10% higher than the current bid (minimum increment)
+            const minRequired = roundUpOnePlaceOver(auction.currentBid * 1.1);
+            if (input.amount < minRequired) {
+                throw new AuctionLifecycleError(`Bid must be at least $${formatMoney(minRequired)}`, 400, "bid_too_low");
             }
             if (!input.isNPC && !input.playerId) {
                 throw new AuctionLifecycleError("Player bids require a player id", 500, "missing_player_id");
