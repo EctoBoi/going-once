@@ -480,7 +480,7 @@ export default function AuctionDetail({
                                 onChange={setBidAmount}
                                 min={minNextBid}
                                 step={1}
-                                className="min-w-0 w-24 sm:flex-1 border-l-4 border-stone-50"
+                                className="min-w-0 w-24 flex-1 border-l-4 border-stone-50"
                                 inputClassName="rounded border border-stone-700 bg-stone-900 p-1 sm:p-2 text-sm sm:text-base"
                                 placeholder={`Min $${formatMoney(minNextBid)}`}
                             />
