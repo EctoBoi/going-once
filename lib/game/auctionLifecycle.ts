@@ -647,6 +647,9 @@ export async function createListing(input: CreateListingInput) {
             throw new AuctionLifecycleError("Already listed", 400, "existing_open_auction");
         }
 
+        if (input.minBid < 1) {
+            throw new AuctionLifecycleError("Minimum bid must be at least $1", 400, "invalid_min_bid");
+        }
         if (input.buyNow !== undefined && input.buyNow < 0) {
             throw new AuctionLifecycleError("Buy-now price cannot be negative", 400, "invalid_buy_now");
         }

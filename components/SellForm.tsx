@@ -5,7 +5,7 @@ import NumberInput from "./NumberInput";
 import { useRouter } from "next/navigation";
 
 export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { playerItemId: string; acquiredFor: number; onSuccess?: () => void }) {
-    const defaultMinBid = String(Math.round(acquiredFor));
+    const defaultMinBid = String(Math.max(1, Math.round(acquiredFor)));
     const defaultBuyNow = ""; //String(Math.round(acquiredFor * 2));
 
     const [minBid, setMinBid] = useState(defaultMinBid);
@@ -36,8 +36,8 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
     async function handleList() {
         setError(null);
         const minBidAmount = parseFloat(minBid);
-        if (isNaN(minBidAmount) || minBidAmount < 0) {
-            setError("Enter a valid minimum bid (must be 0 or more)");
+        if (isNaN(minBidAmount) || minBidAmount < 1) {
+            setError("Enter a valid minimum bid (must be at least $1)");
             return;
         }
 
@@ -77,7 +77,7 @@ export default function SellForm({ playerItemId, acquiredFor, onSuccess }: { pla
         <div className="flex flex-col gap-4">
             <div>
                 <label className="text-sm text-gray-400 block mb-1">Minimum bid ($)</label>
-                <NumberInput value={minBid} onChange={setMinBid} min={0} step={1} inputClassName="border rounded p-2 w-full" />
+                <NumberInput value={minBid} onChange={setMinBid} min={1} step={1} inputClassName="border rounded p-2 w-full" />
             </div>
 
             <div>
