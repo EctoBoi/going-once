@@ -22,32 +22,6 @@ Going Once is a small multiplayer-focused auction simulator and "bid war flippin
 - Realtime/hosting: Supabase (project contains Supabase configuration)
 - Language: TypeScript
 
-## Development
-
-Prerequisites: Node 18+, npm or pnpm, and a Postgres database (or Supabase project).
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run the development server:
-
-```bash
-npm run dev
-```
-
-Available scripts from `package.json`:
-
-- `dev` — Run Next.js dev server
-- `build` — Build the app for production
-- `start` — Start the production server
-- `lint` — Run ESLint
-- `vercel-build` — Generate Prisma client, deploy migrations, then build (used for Vercel)
-
-Environment: copy your environment variables into `.env.local` (database URL, Supabase keys, etc.). The project uses Prisma and Supabase integration — see `prisma/` and `supabase/` folders.
-
 ## Project Structure (high level)
 
 - `app/` — Next.js routes and pages
